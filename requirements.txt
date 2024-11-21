@@ -6,5 +6,4 @@ langchain-core
 langchain-openai
 notebook
 tavily-python
-wikipedia
 langgraph-cli
