@@ -1,31 +1,43 @@
 # Report mAIstro
 
-Report mAIstro is an agent for generating reports based on user-supplied topics following a [plan-and-execute workflow](https://github.com/assafelovic/gpt-researcher).
+Report mAIstro creates easily customizable reports on any user-supplied topic!
+
+## Motivation 
+
+[RAG systems](https://github.com/langchain-ai/rag-from-scratch) are revolutionizing how we interact with LLMs, enabling quick and accurate question-answering capabilities. However, individual questions often serve a larger purpose: informing decisions and strategies. While [reports are essential decision-making tools](https://jxnl.co/writing/2024/06/05/predictions-for-the-future-of-rag/), creating comprehensive reports remains a time-consuming challenge. Report mAIstro transforms this process by leveraging LLMs to generate detailed reports through natural language, making report creation more accessible and efficient!
 
 ## Key Concepts
 
-1. `Topic-Driven Reports` - Generate comprehensive reports based on user-specified topics, with flexibility to accommodate various research needs.
+1. `Natural Language Report Creation` - Report mAIstro requires just two inputs from users:
+   - A `topic` for the report
+   - An optional `structure` in natural language
 
-2. `Natural Language Report Templates` - Define report structures using plain English, supporting multiple formats:
+   While a topic alone can generate basic reports, we found that providing a structure significantly improves quality. For example, business strategy reports might need case studies, while comparative analyses benefit from structured comparison tables. The natural language structure acts as a flexible template, guiding the AI to create more focused and relevant reports.
+
+2. `Plan and Execute` - Report mAIstro follows a [plan-and-execute workflow](https://github.com/assafelovic/gpt-researcher) that separates planning from research, offering several advantages:
+
+   - **Planning Phase**: An LLM analyzes the user's `topic` and `structure` using a planning prompt to create the report sections first.
+   - **Research Phase**: The system parallelizes web research across all sections requiring external data:
+     - Uses [Tavily API](https://tavily.com/) for targeted web searches
+     - Processes multiple sections simultaneously for faster report generation
+     - Synthesizes gathered information into coherent section content
+   
+   This separation allows for better resource management and significantly reduces overall report creation time.
+
+3. `Sequential Writing` - The report generation follows a logical sequence:
+   - First, completes all research-dependent sections in parallel
+   - Then generates connecting sections like introductions and conclusions
+   - Uses insights from research sections to create cohesive narratives
+   - Maintains contextual awareness across all sections
+   
+   While this sequence can be customized via the `structure`, the default flow ensures that conclusions meaningfully incorporate research findings.
+
+4. `Managing different types` - Report mAIstro is built on LangGraph, which has native support for configuration management [using assistants](https://langchain-ai.github.io/langgraph/concepts/assistants/). The report `structure` is a field in the graph configuration, which allows users to create different assistants for different types of reports. Some example report types [we've tested](https://github.com/langchain-ai/report-maistro/tree/main/ntbk/report_maistro.ipynb) include:
    - Market Analysis: Compare products, services, or companies across key metrics
    - Industry Research: Analyze market trends, innovations, and future outlook
    - Strategic Case Studies: Extract actionable insights from business histories
    - Technical Guides: Step-by-step implementation instructions
    - Custom Templates: Design your own report structure in natural language
-
-3. `Three-Phase Research Engine` - Ensures comprehensive and well-structured reports:
-   - Planning: Generate detailed outlines based on template and topic
-   - Research: Parallel processing of research tasks for each section
-   - Synthesis: Create cohesive introduction and conclusion based on findings
-
-4. `Advanced Web Research` - Powered by [Tavily API](https://tavily.com/) for intelligent information gathering:
-   - Context-Aware Search:
-     * Real-time data for trend analysis (filtered by recency)
-     * Comprehensive search for strategic and comparative reports
-     * Academic sources for technical documentation
-   - Multi-Query Strategy: Generate varied search queries per section
-   - Parallel Processing: Concurrent research across all sections
-   - Source Validation: Automatic verification of information reliability
 
 ## Quick Start
 
@@ -35,6 +47,12 @@ $ cp .env.example .env
 ```
 
 2. Load the graph in LangGraph Studio [here](https://github.com/langchain-ai/langgraph-studio?tab=readme-ov-file#download).
+
+![Screenshot 2024-11-22 at 4 03 47 PM](https://github.com/user-attachments/assets/34a5504d-fa97-4076-9bb8-2f0ecc0352ca)
+
+3. Create assistants
+ 
+![Screenshot 2024-11-22 at 4 04 47 PM](https://github.com/user-attachments/assets/7a488a5e-a768-4113-bce4-3fb2b479dc5e)
 
 ## Testing in notebook
 
