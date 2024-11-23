@@ -7,3 +7,4 @@ langchain-openai
 notebook
 tavily-python
 langgraph-cli
+langchain_anthropic
