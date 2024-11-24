@@ -1,10 +1,30 @@
 # Report mAIstro
 
-Report mAIstro creates easily customizable reports on any user-supplied topic!
+Report mAIstro creates easily customizable reports on any user-supplied topic.
+
+## Quickstart
+
+1. Populate the `.env` file: 
+```
+$ cp .env.example .env
+```
+
+2. Load this folder in [LangGraph Studio](https://github.com/langchain-ai/langgraph-studio?tab=readme-ov-file#download) 
+
+![Screenshot 2024-11-22 at 4 03 47 PM](https://github.com/user-attachments/assets/34a5504d-fa97-4076-9bb8-2f0ecc0352ca)
+
+3. Optionally, provide a report structure as a configuration 
+> see [examples here](report_examples/structures//) for some report types we've tested
+
+![Screenshot 2024-11-22 at 4 04 47 PM](https://github.com/user-attachments/assets/7a488a5e-a768-4113-bce4-3fb2b479dc5e)
+
+4. Provide a topic and run the graph to produce a report
+
+> See the provided [notebook](ntbk/report_maistro.ipynb) or [example reports](report_examples/reports/) for examples!
 
 ## Motivation 
 
-[RAG systems](https://github.com/langchain-ai/rag-from-scratch) are revolutionizing how we interact with LLMs, enabling quick and accurate question-answering capabilities. However, individual questions often serve a larger purpose: informing decisions and strategies. While [reports are essential decision-making tools](https://jxnl.co/writing/2024/06/05/predictions-for-the-future-of-rag/), creating comprehensive reports remains a time-consuming challenge. Report mAIstro transforms this process by leveraging LLMs to generate detailed reports through natural language, making report creation more accessible and efficient!
+[RAG systems](https://github.com/langchain-ai/rag-from-scratch) are a powerful tool for interacting with LLMs, enabling quick and accurate question-answering capabilities. However, individual questions often serve a larger purpose: informing decisions and strategies. While [reports are essential decision-making tools](https://jxnl.co/writing/2024/06/05/predictions-for-the-future-of-rag/), creating comprehensive reports remains a time-consuming challenge. Report mAIstro transforms this process by leveraging LLMs to generate detailed reports through natural language, making report creation more accessible and efficient!
 
 ## Key Concepts
 
@@ -36,33 +56,18 @@ Report mAIstro creates easily customizable reports on any user-supplied topic!
    
    While this sequence can be customized via the `structure`, the default flow ensures that conclusions meaningfully incorporate research findings.
 
-4. `Managing different types` - Report mAIstro is built on LangGraph, which has native support for configuration management [using assistants](https://langchain-ai.github.io/langgraph/concepts/assistants/). The report `structure` is a field in the graph configuration, which allows users to create different assistants for different types of reports. Some example report types [we've tested](https://github.com/langchain-ai/report-maistro/tree/main/ntbk/report_maistro.ipynb) include:
-   - Market Analysis: Compare products, services, or companies across key metrics
-   - Industry Research: Analyze market trends, innovations, and future outlook
-   - Strategic Case Studies: Extract actionable insights from business histories
-   - Technical Guides: Step-by-step implementation instructions
-   - Custom Templates: Design your own report structure in natural language
+4. `Managing different types` - Report mAIstro is built on LangGraph, which has native support for configuration management [using assistants](https://langchain-ai.github.io/langgraph/concepts/assistants/). The report `structure` is a field in the graph configuration, which allows users to create different assistants for different types of reports. 
 
-> See [report_structures](report_structures/) for some example report types we've tested! 
-
-## Quick Start
-
-1. Populate the `.env` file: 
-```
-$ cp .env.example .env
-```
-
-2. Load the graph in LangGraph Studio [here](https://github.com/langchain-ai/langgraph-studio?tab=readme-ov-file#download).
-
-![Screenshot 2024-11-22 at 4 03 47 PM](https://github.com/user-attachments/assets/34a5504d-fa97-4076-9bb8-2f0ecc0352ca)
-
-3. Create assistants
- 
-![Screenshot 2024-11-22 at 4 04 47 PM](https://github.com/user-attachments/assets/7a488a5e-a768-4113-bce4-3fb2b479dc5e)
+> See the provided [notebook](ntbk/report_maistro.ipynb) or [example reports](report_examples/reports/) for examples! These include:
+>   - Market Analysis: Compare products, services, or companies across key metrics
+>   - Industry Research: Analyze market trends, innovations, and future outlook
+>   - Strategic Case Studies: Extract actionable insights from business histories
+>   - Technical Guides: Step-by-step implementation instructions
+>   - Custom Templates: Design your own report structure in natural language
 
 ## Testing in notebook
 
-Install dependencies and create virtual environment:
+Create a virtual environment and install dependencies:
 ```
 $ python3 -m venv report_maistro
 $ source report_maistro/bin/activate
@@ -80,6 +85,6 @@ $ cd ntbk
 $ jupyter notebook report_maistro.ipynb
 ```
 
-## Deploying to LangGraph Platform 
+## Deploying 
 
-TO ADD
+LangGraph Platform allows various [deployment options](https://langchain-ai.github.io/langgraph/concepts/#deployment-options). 
