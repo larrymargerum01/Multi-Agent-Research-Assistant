@@ -8,22 +8,26 @@ Report mAIstro creates easily customizable reports on any user-supplied topic!
 
 ## Key Concepts
 
+| Phase | Objective | Report mAIstro Implementation |
+|-------|-----------|------------------------------|
+| Structure | How is the report organized? | Uses LLM to convert natural language instructions into structured section objects |
+| Research | What are the information sources? | Web search via Tavily API |
+| Orchestration | How is report generation managed? | Three-phase LangGraph process: 1) Planning to define sections, 2) Parallel research for content, 3) Generation of introduction/conclusion using gathered context |
+
 1. `Natural Language Report Creation` - Report mAIstro requires just two inputs from users:
    - A `topic` for the report
    - An optional `structure` in natural language
 
    While a topic alone can generate basic reports, we found that providing a structure significantly improves quality. For example, business strategy reports might need case studies, while comparative analyses benefit from structured comparison tables. The natural language structure acts as a flexible template, guiding the AI to create more focused and relevant reports.
 
-2. `Plan and Execute` - Report mAIstro follows a [plan-and-execute workflow](https://github.com/assafelovic/gpt-researcher) that separates planning from research, offering several advantages:
+2. `Plan and Execute` - Report mAIstro follows a [plan-and-execute workflow](https://github.com/assafelovic/gpt-researcher) that separates planning from research, allowing for better resource management and significantly reducing overall report creation time:
 
-   - **Planning Phase**: An LLM analyzes the user's `topic` and `structure` using a planning prompt to create the report sections first.
+   - **Planning Phase**: An LLM analyzes the user's `topic` and `structure` using a planning prompt to create the report sections first. 
    - **Research Phase**: The system parallelizes web research across all sections requiring external data:
      - Uses [Tavily API](https://tavily.com/) for targeted web searches
      - Processes multiple sections simultaneously for faster report generation
      - Synthesizes gathered information into coherent section content
    
-   This separation allows for better resource management and significantly reduces overall report creation time.
-
 3. `Sequential Writing` - The report generation follows a logical sequence:
    - First, completes all research-dependent sections in parallel
    - Then generates connecting sections like introductions and conclusions

@@ -12,23 +12,27 @@ from langchain_anthropic import ChatAnthropic
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
+
 from langgraph.constants import Send
 from langgraph.graph import START, END, StateGraph
-
+from langsmith import traceable
 import configuration
 
 # ------------------------------------------------------------
 # LLMs 
+
 gpt_4o = ChatOpenAI(model="gpt-4o", temperature=0) 
 claude_3_5_sonnet = ChatAnthropic(model="claude-3-5-sonnet-20240620", temperature=0) 
 
 # ------------------------------------------------------------
 # Search
+
 tavily_client = TavilyClient()
 tavily_async_client = AsyncTavilyClient()
 
 # ------------------------------------------------------------
 # Schema
+
 class Section(BaseModel):
     name: str = Field(
         description="Name for this section of the report.",
@@ -59,6 +63,9 @@ class Queries(BaseModel):
 class ReportStateInput(TypedDict):
     topic: str # Report topic
 
+class ReportStateOutput(TypedDict):
+    final_report: str # Final report
+
 class ReportState(TypedDict):
     topic: str # Report topic    
     sections: list[Section] # List of report sections 
@@ -77,7 +84,6 @@ class SectionOutputState(TypedDict):
     completed_sections: list[Section] # Final key we duplicate in outer state for Send() API
 
 # ------------------------------------------------------------
-
 # Utility functions
 
 def deduplicate_and_format_sources(search_response, max_tokens_per_source, include_raw_content=True):
@@ -152,8 +158,71 @@ Content:
 """
     return formatted_str
 
-# ------------------------------------------------------------
+@traceable
+def tavily_search(query):
+    """ Search the web using the Tavily API.
+    
+    Args:
+        query (str): The search query to execute
+        
+    Returns:
+        dict: Tavily search response containing:
+            - results (list): List of search result dictionaries, each containing:
+                - title (str): Title of the search result
+                - url (str): URL of the search result
+                - content (str): Snippet/summary of the content
+                - raw_content (str): Full content of the page if available"""
+     
+    return tavily_client.search(query, 
+                         max_results=5, 
+                         include_raw_content=True)
 
+@traceable
+async def tavily_search_async(search_queries, tavily_topic, tavily_days):
+    """
+    Performs concurrent web searches using the Tavily API.
+
+    Args:
+        search_queries (List[SearchQuery]): List of search queries to process
+        tavily_topic (str): Type of search to perform ('news' or 'general')
+        tavily_days (int): Number of days to look back for news articles (only used when tavily_topic='news')
+
+    Returns:
+        List[dict]: List of search results from Tavily API, one per query
+
+    Note:
+        For news searches, each result will include articles from the last `tavily_days` days.
+        For general searches, the time range is unrestricted.
+    """
+    
+    search_tasks = []
+    for query in search_queries:
+        if tavily_topic == "news":
+            search_tasks.append(
+                tavily_async_client.search(
+                    query,
+                    max_results=5,
+                    include_raw_content=True,
+                    topic="news",
+                    days=tavily_days
+                )
+            )
+        else:
+            search_tasks.append(
+                tavily_async_client.search(
+                    query,
+                    max_results=5,
+                    include_raw_content=True,
+                    topic="general"
+                )
+            )
+
+    # Execute all searches concurrently
+    search_docs = await asyncio.gather(*search_tasks)
+
+    return search_docs
+
+# ------------------------------------------------------------
 # Prompts
 
 # Prompt to generate a search query to help with planning the report outline
@@ -163,18 +232,18 @@ The report will be focused on the following topic:
 
 {topic}
 
-The report structure will follow the these guidelines:
+The report structure will follow these guidelines:
 
 {report_organization}
 
-The primary goal is to get current and authoritative information about the topic to help with planning the sections of the report. 
+Your goal is to generate {number_of_queries} search queries that will help gather comprehensive information for planning the report sections. 
 
-When searching, consider:
-- Current and authoritative information about the topic
-- Similar or analogous solutions in related fields
-- Best practices from comparable implementations
+The query should:
 
-Focus on finding the most recent information available without making assumptions about specific time periods."""
+1. Be related to the topic 
+2. Help satisfy the requirements specified in the report organization
+
+Make the query specific enough to find high-quality, relevant sources while covering the breadth needed for the report structure."""
 
 # Prompt generating the report outline
 report_planner_instructions="""You are an expert technical writer, helping to plan a report.
@@ -313,10 +382,10 @@ For Conclusion/Summary:
 - Do not include word count or any preamble in your response"""
 
 # ------------------------------------------------------------
+# Graph nodes
 
-# Nodes
-
-def generate_report_plan(state: ReportState, config: RunnableConfig):
+async def generate_report_plan(state: ReportState, config: RunnableConfig):
+    """ Generate the report plan """
 
     # Inputs
     topic = state["topic"]
@@ -324,24 +393,28 @@ def generate_report_plan(state: ReportState, config: RunnableConfig):
     # Get configuration
     configurable = configuration.Configuration.from_runnable_config(config)
     report_structure = configurable.report_structure
+    number_of_queries = configurable.number_of_queries
+    tavily_topic = configurable.tavily_topic
+    tavily_days = configurable.tavily_days
 
     # Convert JSON object to string if necessary
     if isinstance(report_structure, dict):
         report_structure = str(report_structure)
 
     # Generate search query
-    structured_llm = gpt_4o.with_structured_output(SearchQuery)
+    structured_llm = claude_3_5_sonnet.with_structured_output(Queries)
 
     # Format system instructions
-    system_instructions_query = report_planner_query_writer_instructions.format(topic=topic, report_organization=report_structure)
+    system_instructions_query = report_planner_query_writer_instructions.format(topic=topic, report_organization=report_structure, number_of_queries=number_of_queries)
 
     # Generate queries  
-    query = structured_llm.invoke([SystemMessage(content=system_instructions_query)]+[HumanMessage(content="Generate a search query that will help with planning the sections of the report.")])
+    results = structured_llm.invoke([SystemMessage(content=system_instructions_query)]+[HumanMessage(content="Generate search queries that will help with planning the sections of the report.")])
+
+    # Web search
+    query_list = [query.search_query for query in results.queries]
 
     # Search web 
-    search_docs = tavily_client.search(query.search_query, 
-                                       max_results=5, 
-                                       include_raw_content=True)
+    search_docs = await tavily_search_async(query_list, tavily_topic, tavily_days)
 
     # Deduplicate and format sources
     source_str = deduplicate_and_format_sources(search_docs, max_tokens_per_source=1000, include_raw_content=False)
@@ -356,7 +429,7 @@ def generate_report_plan(state: ReportState, config: RunnableConfig):
     return {"sections": report_sections.sections}
 
 def generate_queries(state: SectionState, config: RunnableConfig):
-    """ Generate search queries for a section """
+    """ Generate search queries for a report section """
 
     # Get state 
     section = state["section"]
@@ -387,31 +460,9 @@ async def search_web(state: SectionState, config: RunnableConfig):
     tavily_topic = configurable.tavily_topic
     tavily_days = configurable.tavily_days
 
-    # Create list of search coroutines for each query
-    search_tasks = []
-    for query in search_queries:
-        if tavily_topic == "news":
-            search_tasks.append(
-                tavily_async_client.search(
-                    query.search_query,
-                    max_results=5,
-                    include_raw_content=True,
-                    topic="news",
-                    days=tavily_days
-                )
-            )
-        else:
-            search_tasks.append(
-                tavily_async_client.search(
-                    query.search_query,
-                    max_results=5,
-                    include_raw_content=True,
-                    topic="general"
-                )
-            )
-
-    # Execute all searches concurrently
-    search_docs = await asyncio.gather(*search_tasks)
+    # Web search
+    query_list = [query.search_query for query in search_queries]
+    search_docs = await tavily_search_async(query_list, tavily_topic, tavily_days)
 
     # Deduplicate and format sources
     source_str = deduplicate_and_format_sources(search_docs, max_tokens_per_source=5000, include_raw_content=True)
@@ -478,7 +529,7 @@ def write_final_sections(state: SectionState):
     return {"completed_sections": [section]}
 
 def gather_completed_sections(state: ReportState):
-    """ Gather completed sections from research """    
+    """ Gather completed sections from research and format them as context for writing the final sections """    
 
     # List of completed sections
     completed_sections = state["completed_sections"]
@@ -489,7 +540,7 @@ def gather_completed_sections(state: ReportState):
     return {"report_sections_from_research": completed_report_sections}
 
 def initiate_final_section_writing(state: ReportState):
-    """ This is the "map" step when we kick off research on any sections that require it using the Send API """    
+    """ Write any final sections using the Send API to parallelize the process """    
 
     # Kick off section writing in parallel via Send() API for any sections that do not require research
     return [
@@ -499,18 +550,15 @@ def initiate_final_section_writing(state: ReportState):
     ]
 
 def compile_final_report(state: ReportState):
-    """ Write any final sections based the the rest of the report and compile the final report """    
+    """ Compile the final report """    
 
     # Get sections
     sections = state["sections"]
-    completed_sections = state["completed_sections"]
+    completed_sections = {s.name: s.content for s in state["completed_sections"]}
 
-    # TODO: Is this needed for section order? 
-    for completed in completed_sections:
-        for section in sections:
-            if section.name == completed.name:
-                section.content = completed.content
-
+    # Update sections with completed content while maintaining original order
+    for section in sections:
+        section.content = completed_sections[section.name]
 
     # Compile final report
     all_sections = "\n\n".join([s.content for s in sections])
@@ -518,7 +566,7 @@ def compile_final_report(state: ReportState):
     return {"final_report": all_sections}
 
 # Add nodes and edges 
-builder = StateGraph(ReportState, input=ReportStateInput, config_schema=configuration.Configuration)
+builder = StateGraph(ReportState, input=ReportStateInput, output=ReportStateOutput, config_schema=configuration.Configuration)
 builder.add_node("generate_report_plan", generate_report_plan)
 builder.add_node("build_section_with_web_research", section_builder.compile())
 builder.add_node("gather_completed_sections", gather_completed_sections)
