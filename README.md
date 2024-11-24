@@ -43,6 +43,8 @@ Report mAIstro creates easily customizable reports on any user-supplied topic!
    - Technical Guides: Step-by-step implementation instructions
    - Custom Templates: Design your own report structure in natural language
 
+> See [report_structures](report_structures/) for some example report types we've tested! 
+
 ## Quick Start
 
 1. Populate the `.env` file: 
