@@ -298,13 +298,21 @@ Topic for this section:
 
 Guidelines for writing:
 
-1. Length and Style:
+1. Technical Accuracy:
+- Include specific version numbers
+- Reference concrete metrics/benchmarks
+- Cite official documentation
+- Use technical terminology precisely
+
+2. Length and Style:
 - Strict 150-200 word limit
+- No marketing language
+- Technical focus
 - Write in simple, clear language
 - Start with your most important insight in **bold**
 - Use short paragraphs (2-3 sentences max)
 
-2. Structure:
+3. Structure:
 - Use ## for section title (Markdown format)
 - Only use ONE structural element IF it helps clarify your point:
   * Either a focused table comparing 2-3 key items (using Markdown table syntax)
