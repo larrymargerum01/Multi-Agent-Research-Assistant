@@ -2,6 +2,8 @@
 
 Report mAIstro creates easily customizable reports on any user-supplied topic.
 
+> See [report examples here](report_examples/reports/)! 
+
 ## Quickstart
 
 1. Populate the `.env` file: 
@@ -13,26 +15,27 @@ $ cp .env.example .env
 
 ![Screenshot 2024-11-22 at 4 03 47 PM](https://github.com/user-attachments/assets/34a5504d-fa97-4076-9bb8-2f0ecc0352ca)
 
-3. Optionally, provide a report structure as a configuration 
-> see [examples here](report_examples/structures//) for some report types we've tested
+3. Optionally, provide a description of the report structure you want as a configuration. 
+
+> See [some example report types here](report_examples/reports/)! 
 
 ![Screenshot 2024-11-22 at 4 04 47 PM](https://github.com/user-attachments/assets/7a488a5e-a768-4113-bce4-3fb2b479dc5e)
 
 4. Provide a topic and run the graph to produce a report
 
-> See the provided [notebook](ntbk/report_maistro.ipynb) or [example reports](report_examples/reports/) for examples!
-
 ## Motivation 
 
 [RAG systems](https://github.com/langchain-ai/rag-from-scratch) are a powerful tool for interacting with LLMs, enabling quick and accurate question-answering capabilities. However, individual questions often serve a larger purpose: informing decisions and strategies. While [reports are essential decision-making tools](https://jxnl.co/writing/2024/06/05/predictions-for-the-future-of-rag/), creating comprehensive reports remains a time-consuming challenge. Report mAIstro transforms this process by leveraging LLMs to generate detailed reports through natural language, making report creation more accessible and efficient!
 
-## Key Concepts
+## Overview
 
 | Phase | Objective | Report mAIstro Implementation |
 |-------|-----------|------------------------------|
 | Structure | How is the report organized? | Uses LLM to convert natural language instructions into structured section objects |
 | Research | What are the information sources? | Web search via Tavily API |
-| Orchestration | How is report generation managed? | Three-phase LangGraph process: 1) Planning to define sections, 2) Parallel research for content, 3) Generation of introduction/conclusion using gathered context |
+| Orchestration | How is report generation managed? | Three-phase LangGraph workflow: 1) Planning to define sections, 2) Parallel research for content, 3) Generation of introduction/conclusion using gathered context |
+| Reporting | How is the report presented to the user? | Generates structured markdown files |
+| UX | What is the user interaction pattern? | Synchronous workflow where user provides inputs and waits for the report to be generated |
 
 1. `Natural Language Report Creation` - Report mAIstro requires just two inputs from users:
    - A `topic` for the report
