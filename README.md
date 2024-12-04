@@ -2,7 +2,9 @@
 
 Report mAIstro creates easily customizable reports on any user-supplied topic.
 
-> See [report examples here](report_examples/reports/)! 
+> See [report examples here](report_examples/reports/)!
+
+![report_mAIstro](https://github.com/user-attachments/assets/720aae16-dc68-4725-a880-1e4e0c7e6fd4)
 
 ## Quickstart
 
