@@ -2,7 +2,7 @@
 
 Report mAIstro creates easily customizable reports on any user-supplied topic.
 
-> See [report examples here](report_examples/reports/)!
+> See [report examples here](report_examples/)!
 
 ![report_mAIstro](https://github.com/user-attachments/assets/720aae16-dc68-4725-a880-1e4e0c7e6fd4)
 
@@ -19,7 +19,7 @@ $ cp .env.example .env
 
 3. Optionally, provide a description of the report structure you want as a configuration. 
 
-> See [some example report types here](report_examples/reports/)! 
+> See [some example report types here](report_examples/)!
 
 ![Screenshot 2024-11-22 at 4 04 47 PM](https://github.com/user-attachments/assets/7a488a5e-a768-4113-bce4-3fb2b479dc5e)
 
@@ -63,7 +63,7 @@ $ cp .env.example .env
 
 4. `Managing different types` - Report mAIstro is built on LangGraph, which has native support for configuration management [using assistants](https://langchain-ai.github.io/langgraph/concepts/assistants/). The report `structure` is a field in the graph configuration, which allows users to create different assistants for different types of reports. 
 
-> See the provided [notebook](ntbk/report_maistro.ipynb) or [example reports](report_examples/reports/) for examples! These include:
+> See the provided [notebook](ntbk/report_maistro.ipynb) or [example reports](report_examples/) for examples! These include:
 >   - Market Analysis: Compare products, services, or companies across key metrics
 >   - Industry Research: Analyze market trends, innovations, and future outlook
 >   - Strategic Case Studies: Extract actionable insights from business histories
