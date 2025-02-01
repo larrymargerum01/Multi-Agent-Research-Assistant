@@ -31,10 +31,24 @@ export ANTHROPIC_API_KEY=<your_anthropic_api_key>
 export OPENAI_API_KEY=<your_openai_api_key>
 ```
 
-Launch the assistant with the LangGraph server to run locally:
+Launch the assistant with the LangGraph server, which will open in your browser:
+
+#### Mac
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev
+```
+
+#### Windows
+
+```powershell
+# Install dependencies 
+pip install -e .
+pip install langgraph-cli[inmem]
+
+# Start the LangGraph server
+langgraph dev
 ```
 
 Use this to open the Studio UI:
