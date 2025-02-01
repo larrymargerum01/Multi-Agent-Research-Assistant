@@ -7,7 +7,7 @@ Key features:
 - Enables human review and iteration of the research plan
 - Parallelizes web research across multiple report sections, using Claude-3.5-Sonnet for report writing
 - Produces well-formatted markdown reports
-- Supports customizable models and prompts
+- Supports customizable models, prompts, and report structure
 
 ## 🚀 Quickstart
 
@@ -36,7 +36,10 @@ Launch the assistant with the LangGraph server, which will open in your browser:
 #### Mac
 
 ```bash
+# Install uv package manager
 curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies and start the LangGraph server
 uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev
 ```
 
