@@ -27,7 +27,7 @@ class Configuration:
     number_of_queries: int = 2 
     tavily_topic: str = "general"
     tavily_days: str = None
-    planner_model: str = "o1"
+    planner_model: str = "o3-mini"
     writer_model: str = "claude-3-5-sonnet-latest"
 
     @classmethod

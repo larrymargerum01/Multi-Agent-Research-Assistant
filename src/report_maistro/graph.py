@@ -21,7 +21,7 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
 
     # Inputs
     topic = state["topic"]
-    feedback = state.get("feedback", None)
+    feedback = state.get("feedback_on_report_plan", None)
 
     # Get configuration
     configurable = Configuration.from_runnable_config(config)
@@ -129,7 +129,7 @@ def initiate_section_writing(state: ReportState):
     """ This is the "map" step when we kick off web research for some sections of the report """    
         
     # Check if human feedback
-    if state.get("feedback"):
+    if state.get("feedback_on_report_plan"):
         return "generate_report_plan"
     
     # Kick off section writing in parallel via Send() API for any sections that require research
