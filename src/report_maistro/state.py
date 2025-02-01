@@ -1,6 +1,6 @@
 from typing import Annotated, List, TypedDict
 from pydantic import BaseModel, Field
-import operator
+from enum import Enum
 import operator
 
 class Section(BaseModel):
@@ -33,6 +33,7 @@ class Queries(BaseModel):
 class ReportStateInput(TypedDict):
     topic: str # Report topic
     feedback_on_report_plan: str # Feedback on the report structure from review
+    accept_report_plan: bool  # Whether to accept or reject the report plan
     
 class ReportStateOutput(TypedDict):
     final_report: str # Final report
@@ -40,6 +41,7 @@ class ReportStateOutput(TypedDict):
 class ReportState(TypedDict):
     topic: str # Report topic    
     feedback_on_report_plan: str # Feedback on the report structure from review
+    accept_report_plan: bool  # Whether to accept or reject the report plan
     sections: list[Section] # List of report sections 
     completed_sections: Annotated[list, operator.add] # Send() API key
     report_sections_from_research: str # String of any completed sections from research to write final sections

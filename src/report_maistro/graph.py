@@ -128,8 +128,14 @@ def write_section(state: SectionState):
 def initiate_section_writing(state: ReportState):
     """ This is the "map" step when we kick off web research for some sections of the report """    
         
-    # Check if human feedback
-    if state.get("feedback_on_report_plan"):
+    # Get feedback
+    feedback = state.get("feedback_on_report_plan", None)
+
+    # Feedback is by default None and accept_report_plan is by default False
+    # If a user hits "Continue" in Studio, we want to proceed with the report plan
+    # If a user enters feedback_on_report_plan in Studio, we want to regenerate the report plan
+    # Once a user enters feedback_on_report_plan, they need to flip accept_report_plan to True to proceed
+    if not state.get("accept_report_plan") and feedback:
         return "generate_report_plan"
     
     # Kick off section writing in parallel via Send() API for any sections that require research
