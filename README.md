@@ -9,6 +9,9 @@ Key features:
 - Produces well-formatted markdown reports
 - Supports customizable models, prompts, and report structure
 
+Short summary:
+<video src="https://github.com/user-attachments/assets/d9a66221-59cf-4c71-916d-33fdf3457fe8" controls></video>
+
 ## 🚀 Quickstart
 
 Clone the repository:
