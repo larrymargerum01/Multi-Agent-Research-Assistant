@@ -1,10 +1,29 @@
 # Report mAIstro
 
-Report mAIstro performs "deep research" on any user-supplied topic and generates a report. It uses o-series model to generate the report plan, human-in-the-loop to review and iterate on the plan, performs web research, and writes the report.
+Report mAIstro is an open-source research assistant that generates comprehensive reports on any topic, following a workflow similar to Google's [Gemini Deep Research](https://blog.google/products/gemini/google-gemini-deep-research/). It combines planning, parallel web research, and structured writing with human oversight.
+
+Key features:
+- Uses OpenAI o-series reasoning model (default) for intelligent report planning
+- Enables human review and iteration of the research plan
+- Parallelizes web research across multiple report sections, using Claude-3.5-Sonnet for report writing
+- Produces well-formatted markdown reports
+- Supports customizable models and prompts
 
 ## 🚀 Quickstart
 
+Clone the repository:
+```bash
+git clone https://github.com/langchain-ai/report_maistro.git
+cd report_maistro
+```
+
 Set API keys for Anthropic (default writer), OpenAI (default planner), and [Tavily](https://tavily.com) for free web search up to 1000 requests):
+
+```bash
+cp .env.example .env
+```
+
+Edit the `.env` file with your API keys:
 
 ```bash
 export TAVILY_API_KEY=<your_tavily_api_key>
@@ -12,11 +31,9 @@ export ANTHROPIC_API_KEY=<your_anthropic_api_key>
 export OPENAI_API_KEY=<your_openai_api_key>
 ```
 
-Clone the repository and launch the assistant with the LangGraph server to run locally:
+Launch the assistant with the LangGraph server to run locally:
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-git clone https://github.com/langchain-ai/research-rabbit.git
-cd report_maistro
 uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev
 ```
 
