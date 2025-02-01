@@ -44,7 +44,23 @@ Use this to open the Studio UI:
 - 📚 API Docs: http://127.0.0.1:2024/docs
 ```
 
-Provide a topic and run the graph to produce a report.
+(1) Provide a `Topic` and hit `Submit`:
+
+![Screenshot 2025-01-31 at 8 12 21 PM](https://github.com/user-attachments/assets/70ce93d8-c29f-49ea-9e06-19377d8cac7b)
+
+(2) This will generate a report plan:
+
+![Screenshot 2025-01-31 at 8 12 44 PM](https://github.com/user-attachments/assets/a464e71c-e122-422f-9736-62f8bf0b8777)
+
+(3) You can review the section of the plan in Studio. If you like them, hit `Continue`.
+
+(4) If you want to add feedback, add `Feedback On Report Plan` and `Submit`:
+
+![Screenshot 2025-01-31 at 8 13 40 PM](https://github.com/user-attachments/assets/d82102f3-0adb-4eca-ae96-2fe720b22b71)
+
+(5) If you have given feedback, continue iterating until you are happy and then select `Accept Report Plan`:
+
+![Screenshot 2025-01-31 at 8 14 19 PM](https://github.com/user-attachments/assets/1d693e16-79df-4823-8355-482999546922)
 
 ## 📖 Customizing the report
 
