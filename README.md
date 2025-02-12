@@ -1,26 +1,42 @@
-# Report mAIstro
-
-Report mAIstro is an open-source research assistant that generates comprehensive reports on any topic, following a workflow similar to Google's [Gemini Deep Research](https://blog.google/products/gemini/google-gemini-deep-research/). It combines planning, parallel web research, and structured writing with human oversight.
+# Open Deep Research
+ 
+Open Deep Research is a web research assistant that generates comprehensive reports on any topic following a workflow similar to [OpenAI](https://openai.com/index/introducing-deep-research/) and [Gemini](https://blog.google/products/gemini/google-gemini-deep-research/) Deep Research.However, it allows you to customize the models, prompts, report structure, and search API used. Specifically, you can customize:
 
 Key features:
-- Uses OpenAI o-series reasoning model (default) for intelligent report planning
-- Enables human review and iteration of the research plan
-- Parallelizes web research across multiple report sections, using Claude-3.5-Sonnet for report writing
-- Produces well-formatted markdown reports
-- Supports customizable models, prompts, and report structure
+- Optionally, provide an outline with a desired report structure
+- Optionally, customize the planner model (e.g., DeepSeek, OpenAI reasoning model, etc)
+- Provide feedback on the plan of report sections and iterate until user approval 
+- Optionally, choose different search APIs (e.g., Tavily, Perplexity) and set the # of searches to perform during research on each section
+- Optionally, set the number of section writing, reflection, search, re-write to perform during report generation
+- Optionally, customize the writer model (e.g., Anthropic)
 
 Short summary:
 <video src="https://github.com/user-attachments/assets/d9a66221-59cf-4c71-916d-33fdf3457fe8" controls></video>
+
+## 📺 Video Tutorials
 
 ## 🚀 Quickstart
 
 Clone the repository:
 ```bash
-git clone https://github.com/langchain-ai/report_maistro.git
-cd report_maistro
+git clone https://github.com/langchain-ai/open_deep_research.git
+cd open_deep_research
 ```
 
-Set API keys for Anthropic (default writer), OpenAI (default planner), and [Tavily](https://tavily.com) for free web search up to 1000 requests):
+Select a web search tool, by default it is Tavily:
+
+* [Tavily API](https://tavily.com/)
+* [Perplexity API](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api)
+
+Select a writer model, by default it is Anthropic:
+
+* [Anthropic](https://www.anthropic.com/)
+
+Select a planner model, by default it is OpenAI:
+* [OpenAI](https://openai.com/)
+* [Groq](https://groq.com/)
+
+Set API keys for your selections above:
 
 ```bash
 cp .env.example .env
@@ -32,6 +48,8 @@ Edit the `.env` file with your API keys:
 export TAVILY_API_KEY=<your_tavily_api_key>
 export ANTHROPIC_API_KEY=<your_anthropic_api_key>
 export OPENAI_API_KEY=<your_openai_api_key>
+export GROQ_API_KEY=<your_groq_api_key>
+export PERPLEXITY_API_KEY=<your_perplexity_api_key>
 ```
 
 Launch the assistant with the LangGraph server, which will open in your browser:
@@ -90,15 +108,15 @@ Optionally, provide a description of the report structure you want as a configur
 
 ## Motivation 
 
-Automating research and report writing is a common need. [Deep Research](https://blog.google/products/gemini/google-gemini-deep-research/) from Google is a great example of this. This open source project mirror the flow of Deep Research, but allow you to customize the models, prompts, and research report structure.
+This mirrors the flow of [OpenAI](https://openai.com/index/introducing-deep-research/) and [Gemini](https://blog.google/products/gemini/google-gemini-deep-research/) Deep Research, but allow you to customize the models, prompts, and research report structure.
 
 ## How it works
    
-1. `Plan and Execute` - Report mAIstro follows a [plan-and-execute workflow](https://github.com/assafelovic/gpt-researcher) that separates planning from research, allowing for better resource management, human-in-the-loop approval, and significantly reducing overall report creation time:
+1. `Plan and Execute` - Open Deep Research follows a [plan-and-execute workflow](https://github.com/assafelovic/gpt-researcher) that separates planning from research, allowing for better resource management, human-in-the-loop approval, and significantly reducing overall report creation time:
 
    - **Planning Phase**: An LLM analyzes the user's `topic` and `structure` using a planning prompt to create the report sections first. 
    - **Research Phase**: The system parallelizes web research across all sections requiring external data:
-     - Uses [Tavily API](https://tavily.com/) for targeted web searches
+     - Uses [Tavily API](https://tavily.com/) or [Perplexity](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api) for targeted web searches
      - Processes multiple sections simultaneously for faster report generation
      - Synthesizes gathered information into coherent section content
    
@@ -110,7 +128,7 @@ Automating research and report writing is a common need. [Deep Research](https:/
    
    While this sequence can be customized via the `structure`, the default flow ensures that conclusions meaningfully incorporate research findings.
 
-3. `Managing different types` - Report mAIstro is built on LangGraph, which has native support for configuration management [using assistants](https://langchain-ai.github.io/langgraph/concepts/assistants/). The report `structure` is a field in the graph configuration, which allows users to create different assistants for different types of reports. 
+3. `Managing different types` - Open Deep Research is built on LangGraph, which has native support for configuration management [using assistants](https://langchain-ai.github.io/langgraph/concepts/assistants/). The report `structure` is a field in the graph configuration, which allows users to create different assistants for different types of reports. 
 
 ## UX
 

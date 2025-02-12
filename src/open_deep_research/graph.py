@@ -1,18 +1,22 @@
+from typing import Literal
+
 from langchain_anthropic import ChatAnthropic 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
+
+from langgraph.types import Command
 
 from langgraph.constants import Send
 from langgraph.graph import START, END, StateGraph
 
-from src.report_maistro.state import ReportStateInput, ReportStateOutput, Sections, ReportState, SectionState, SectionOutputState, Queries
-from src.report_maistro.prompts import report_planner_query_writer_instructions, report_planner_instructions, query_writer_instructions, section_writer_instructions, final_section_writer_instructions
-from src.report_maistro.configuration import Configuration
-from src.report_maistro.utils import tavily_search_async, deduplicate_and_format_sources, format_sections
+from src.open_deep_research.state import ReportStateInput, ReportStateOutput, Sections, ReportState, SectionState, SectionOutputState, Queries, Feedback
+from src.open_deep_research.prompts import report_planner_query_writer_instructions, report_planner_instructions, query_writer_instructions, section_writer_instructions, final_section_writer_instructions, section_grader_instructions
+from src.open_deep_research.configuration import Configuration
+from src.open_deep_research.utils import tavily_search_async, deduplicate_and_format_sources, format_sections, perplexity_search
 
-# LLMs 
-planner_model = ChatOpenAI(model=Configuration.planner_model, reasoning_effort="medium") 
+# Set writer model
 writer_model = ChatAnthropic(model=Configuration.writer_model, temperature=0) 
 
 # Nodes
@@ -27,8 +31,6 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
     configurable = Configuration.from_runnable_config(config)
     report_structure = configurable.report_structure
     number_of_queries = configurable.number_of_queries
-    tavily_topic = configurable.tavily_topic
-    tavily_days = configurable.tavily_days
 
     # Convert JSON object to string if necessary
     if isinstance(report_structure, dict):
@@ -46,17 +48,43 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
     # Web search
     query_list = [query.search_query for query in results.queries]
 
-    # Search web 
-    search_docs = await tavily_search_async(query_list, tavily_topic, tavily_days)
+    # Handle both cases for search_api:
+    # 1. When selected in Studio UI -> returns a string (e.g. "tavily")
+    # 2. When using default -> returns an Enum (e.g. SearchAPI.TAVILY)
+    if isinstance(configurable.search_api, str):
+        search_api = configurable.search_api
+    else:
+        search_api = configurable.search_api.value
 
-    # Deduplicate and format sources
-    source_str = deduplicate_and_format_sources(search_docs, max_tokens_per_source=1000, include_raw_content=False)
+    # Search the web
+    if search_api == "tavily":
+        search_results = await tavily_search_async(query_list)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    elif search_api == "perplexity":
+        search_results = perplexity_search(query_list)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    else:
+        raise ValueError(f"Unsupported search API: {configurable.search_api}")
 
     # Format system instructions
     system_instructions_sections = report_planner_instructions.format(topic=topic, report_organization=report_structure, context=source_str, feedback=feedback)
 
+    # Set the planner provider
+    if isinstance(configurable.planner_provider, str):
+        planner_provider = configurable.planner_provider
+    else:
+        planner_provider = configurable.planner_provider.value
+
+    # Set the planner model
+    if  planner_provider == "openai":
+        planner_llm = ChatOpenAI(model=configurable.planner_model) 
+    elif planner_provider == "groq":
+        planner_llm = ChatGroq(model=configurable.planner_model)
+    else:
+        raise ValueError(f"Unsupported search API: {configurable.search_api}")
+
     # Generate sections 
-    structured_llm = planner_model.with_structured_output(Sections)
+    structured_llm = planner_llm.with_structured_output(Sections)
     report_sections = structured_llm.invoke([SystemMessage(content=system_instructions_sections)]+[HumanMessage(content="Generate the sections of the report. Your response must include a 'sections' field containing a list of sections. Each section must have: name, description, plan, research, and content fields.")])
 
     return {"sections": report_sections.sections}
@@ -94,27 +122,42 @@ async def search_web(state: SectionState, config: RunnableConfig):
 
     # Get configuration
     configurable = Configuration.from_runnable_config(config)
-    tavily_topic = configurable.tavily_topic
-    tavily_days = configurable.tavily_days
 
     # Web search
     query_list = [query.search_query for query in search_queries]
-    search_docs = await tavily_search_async(query_list, tavily_topic, tavily_days)
+    
+    # Handle both cases for search_api:
+    # 1. When selected in Studio UI -> returns a string (e.g. "tavily")
+    # 2. When using default -> returns an Enum (e.g. SearchAPI.TAVILY)
+    if isinstance(configurable.search_api, str):
+        search_api = configurable.search_api
+    else:
+        search_api = configurable.search_api.value
 
-    # Deduplicate and format sources
-    source_str = deduplicate_and_format_sources(search_docs, max_tokens_per_source=5000, include_raw_content=True)
+    # Search the web
+    if search_api == "tavily":
+        search_results = await tavily_search_async(query_list)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=5000, include_raw_content=True)
+    elif search_api == "perplexity":
+        search_results = perplexity_search(query_list)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=5000, include_raw_content=False)
+    else:
+        raise ValueError(f"Unsupported search API: {configurable.search_api}")
 
-    return {"source_str": source_str}
+    return {"source_str": source_str, "search_iterations": state["search_iterations"] + 1}
 
-def write_section(state: SectionState):
+def write_section(state: SectionState, config: RunnableConfig) -> Command[Literal[END,"search_web"]]:
     """ Write a section of the report """
 
     # Get state 
     section = state["section"]
     source_str = state["source_str"]
 
+    # Get configuration
+    configurable = Configuration.from_runnable_config(config)
+
     # Format system instructions
-    system_instructions = section_writer_instructions.format(section_title=section.name, section_topic=section.description, context=source_str)
+    system_instructions = section_writer_instructions.format(section_title=section.name, section_topic=section.description, context=source_str, section_content=section.content)
 
     # Generate section  
     section_content = writer_model.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate a report section based on the provided sources.")])
@@ -122,9 +165,26 @@ def write_section(state: SectionState):
     # Write content to the section object  
     section.content = section_content.content
 
-    # Write the updated section to completed sections
-    return {"completed_sections": [section]}
+    # Grade prompt 
+    section_grader_instructions_formatted = section_grader_instructions.format(section_topic=section.description,section=section.content)
 
+    # Feedback 
+    structured_llm = writer_model.with_structured_output(Feedback)
+    feedback = structured_llm.invoke([SystemMessage(content=section_grader_instructions_formatted)]+[HumanMessage(content="Grade the report and consider follow-up questions for missing information:")])
+
+    if feedback.grade == "pass" or state["search_iterations"] >= configurable.max_search_depth:
+        # Publish the section to completed sections 
+        return  Command(
+        update={"completed_sections": [section]},
+        goto=END
+    )
+    else:
+        # Update the existing section with new content and update search queries
+        return  Command(
+        update={"search_queries": feedback.follow_up_queries, "section": section},
+        goto="search_web"
+        )
+    
 def initiate_section_writing(state: ReportState):
     """ This is the "map" step when we kick off web research for some sections of the report """    
         
@@ -141,7 +201,7 @@ def initiate_section_writing(state: ReportState):
     # Kick off section writing in parallel via Send() API for any sections that require research
     else: 
         return [
-            Send("build_section_with_web_research", {"section": s}) 
+            Send("build_section_with_web_research", {"section": s, "search_iterations": 0}) 
             for s in state["sections"] 
             if s.research
         ]
@@ -214,7 +274,6 @@ section_builder.add_node("write_section", write_section)
 section_builder.add_edge(START, "generate_queries")
 section_builder.add_edge("generate_queries", "search_web")
 section_builder.add_edge("search_web", "write_section")
-section_builder.add_edge("write_section", END)
 
 # Outer graph -- 
 
