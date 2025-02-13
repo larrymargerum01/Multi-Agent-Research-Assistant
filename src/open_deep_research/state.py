@@ -1,6 +1,5 @@
-from typing import Annotated, List, TypedDict
+from typing import Annotated, List, TypedDict, Literal
 from pydantic import BaseModel, Field
-from enum import Enum
 import operator
 
 class Section(BaseModel):
@@ -30,6 +29,14 @@ class Queries(BaseModel):
         description="List of search queries.",
     )
 
+class Feedback(BaseModel):
+    grade: Literal["pass","fail"] = Field(
+        description="Evaluation result indicating whether the response meets requirements ('pass') or needs revision ('fail')."
+    )
+    follow_up_queries: List[SearchQuery] = Field(
+        description="List of follow-up search queries.",
+    )
+
 class ReportStateInput(TypedDict):
     topic: str # Report topic
     feedback_on_report_plan: str # Feedback on the report structure from review
@@ -48,7 +55,8 @@ class ReportState(TypedDict):
     final_report: str # Final report
 
 class SectionState(TypedDict):
-    section: Section # Report section   
+    section: Section # Report section  
+    search_iterations: int # Number of search iterations done
     search_queries: list[SearchQuery] # List of search queries
     source_str: str # String of formatted source content from web search
     report_sections_from_research: str # String of any completed sections from research to write final sections
