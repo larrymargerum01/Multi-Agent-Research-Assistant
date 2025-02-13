@@ -5,7 +5,7 @@ Open Deep Research is a web research assistant that generates comprehensive repo
 - provide an outline with a desired report structure
 - set the planner model (e.g., DeepSeek, OpenAI reasoning model, etc)
 - give feedback on the plan of report sections and iterate until user approval 
-- set the search API (e.g., Tavily, Perplexity) and set the # of searches to perform during research on each section
+- set the search API (e.g., Tavily, Perplexity) and # of searches to run for each research iteration
 - set the depth of search for each section (# of iterations of writing, reflection, search, re-write)
 - customize the writer model (e.g., Anthropic)
 
