@@ -1,14 +1,13 @@
 # Open Deep Research
  
-Open Deep Research is a web research assistant that generates comprehensive reports on any topic following a workflow similar to [OpenAI](https://openai.com/index/introducing-deep-research/) and [Gemini](https://blog.google/products/gemini/google-gemini-deep-research/) Deep Research.However, it allows you to customize the models, prompts, report structure, and search API used. Specifically, you can customize:
+Open Deep Research is a web research assistant that generates comprehensive reports on any topic following a workflow similar to [OpenAI](https://openai.com/index/introducing-deep-research/) and [Gemini](https://blog.google/products/gemini/google-gemini-deep-research/) Deep Research.However, it allows you to customize the models, prompts, report structure, search API, and research depth. Specifically, you can customize:
 
-Key features:
-- Optionally, provide an outline with a desired report structure
-- Optionally, customize the planner model (e.g., DeepSeek, OpenAI reasoning model, etc)
-- Provide feedback on the plan of report sections and iterate until user approval 
-- Optionally, choose different search APIs (e.g., Tavily, Perplexity) and set the # of searches to perform during research on each section
-- Optionally, set the number of section writing, reflection, search, re-write to perform during report generation
-- Optionally, customize the writer model (e.g., Anthropic)
+- provide an outline with a desired report structure
+- set the planner model (e.g., DeepSeek, OpenAI reasoning model, etc)
+- give feedback on the plan of report sections and iterate until user approval 
+- set the search API (e.g., Tavily, Perplexity) and set the # of searches to perform during research on each section
+- set the depth of search for each section (# of iterations of writing, reflection, search, re-write)
+- customize the writer model (e.g., Anthropic)
 
 Short summary:
 <video src="https://github.com/user-attachments/assets/d9a66221-59cf-4c71-916d-33fdf3457fe8" controls></video>
@@ -42,14 +41,12 @@ Set API keys for your selections above:
 cp .env.example .env
 ```
 
-Edit the `.env` file with your API keys:
+Edit the `.env` file with your API keys (e.g., the API keys for default selections are shown below):
 
 ```bash
 export TAVILY_API_KEY=<your_tavily_api_key>
 export ANTHROPIC_API_KEY=<your_anthropic_api_key>
 export OPENAI_API_KEY=<your_openai_api_key>
-export GROQ_API_KEY=<your_groq_api_key>
-export PERPLEXITY_API_KEY=<your_perplexity_api_key>
 ```
 
 Launch the assistant with the LangGraph server, which will open in your browser:
@@ -102,31 +99,23 @@ Use this to open the Studio UI:
 
 ## 📖 Customizing the report
 
-Optionally, provide a description of the report structure you want as a configuration. You can further tune this during the feedback phase. While a topic alone can generate reports, we found that providing a structure significantly improves quality. For example, business strategy reports might need case studies, while comparative analyses benefit from structured comparison tables. The natural language structure acts as a flexible template, guiding the AI to create more focused and relevant reports.
+You can customize the research assistant's behavior through several parameters:
 
-> See [some example report types here](report_examples/)!
+- `report_structure`: Define a custom structure for your report (defaults to a standard research report format)
+- `number_of_queries`: Number of search queries to generate per section (default: 2)
+- `max_search_depth`: Maximum number of reflection and search iterations (default: 2)
+- `planner_provider`: Model provider for planning phase (default: OpenAI)
+- `planner_model`: Specific model for planning (default: "o3-mini")
+- `writer_model`: Model for writing the report (default: "claude-3-5-sonnet-latest")
+- `search_api`: API to use for web searches (default: Tavily)
 
-## Motivation 
-
-This mirrors the flow of [OpenAI](https://openai.com/index/introducing-deep-research/) and [Gemini](https://blog.google/products/gemini/google-gemini-deep-research/) Deep Research, but allow you to customize the models, prompts, and research report structure.
+These configurations allow you to fine-tune the research process based on your needs, from adjusting the depth of research to selecting specific AI models for different phases of report generation.
 
 ## How it works
    
-1. `Plan and Execute` - Open Deep Research follows a [plan-and-execute workflow](https://github.com/assafelovic/gpt-researcher) that separates planning from research, allowing for better resource management, human-in-the-loop approval, and significantly reducing overall report creation time:
-
-   - **Planning Phase**: An LLM analyzes the user's `topic` and `structure` using a planning prompt to create the report sections first. 
-   - **Research Phase**: The system parallelizes web research across all sections requiring external data:
-     - Uses [Tavily API](https://tavily.com/) or [Perplexity](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api) for targeted web searches
-     - Processes multiple sections simultaneously for faster report generation
-     - Synthesizes gathered information into coherent section content
+1. `Plan and Execute` - Open Deep Research follows a [plan-and-execute workflow](https://github.com/assafelovic/gpt-researcher) that separates planning from research, allowing for human-in-the-loop approval of a report plan before the more time-consuming research phase. It uses, by default, a [reasoning model](https://www.youtube.com/watch?v=f0RbwrBcFmc) to plan the report sections. During this phase, it uses web search to gather general information about the report topic to help in planning the report sections. But, it also accepts a report structure from the user to help guide the report sections as well as human feedback on the report plan.
    
-2. `Sequential Writing` - The report generation follows a logical sequence:
-   - First, completes all research-dependent sections in parallel
-   - Then generates connecting sections like introductions and conclusions
-   - Uses insights from research sections to create cohesive narratives
-   - Maintains contextual awareness across all sections
-   
-   While this sequence can be customized via the `structure`, the default flow ensures that conclusions meaningfully incorporate research findings.
+2. `Research and Write` - Each section of the report is written in parallel. The research assistant uses web search via [Tavily API](https://tavily.com/) or [Perplexity](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api) to gather information about each section topic. It will reflect on each report section and suggest follow-up questions for web search. This "depth" of research will proceed for any many iterations as the user wants. Any final sections, such as introductions and conclusions, are written after the main body of the report is written, which helps ensure that the report is cohesive and coherent. The planner determines main body versus final sections during the planning phase.
 
 3. `Managing different types` - Open Deep Research is built on LangGraph, which has native support for configuration management [using assistants](https://langchain-ai.github.io/langgraph/concepts/assistants/). The report `structure` is a field in the graph configuration, which allows users to create different assistants for different types of reports. 
 
@@ -134,7 +123,7 @@ This mirrors the flow of [OpenAI](https://openai.com/index/introducing-deep-rese
 
 ### Local deployment
 
-Follow the [quickstart](#quickstart) to run the assistant locally.
+Follow the [quickstart](#quickstart) to start LangGraph server locally.
 
 ### Hosted deployment
  
