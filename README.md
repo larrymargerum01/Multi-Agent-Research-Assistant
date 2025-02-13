@@ -5,7 +5,7 @@ Open Deep Research is a web research assistant that generates comprehensive repo
 - provide an outline with a desired report structure
 - set the planner model (e.g., DeepSeek, OpenAI reasoning model, etc)
 - give feedback on the plan of report sections and iterate until user approval 
-- set the search API (e.g., Tavily, Perplexity) and set the # of searches to perform during research on each section
+- set the search API (e.g., Tavily, Perplexity) and # of searches to run for each research iteration
 - set the depth of search for each section (# of iterations of writing, reflection, search, re-write)
 - customize the writer model (e.g., Anthropic)
 
@@ -104,8 +104,8 @@ You can customize the research assistant's behavior through several parameters:
 - `report_structure`: Define a custom structure for your report (defaults to a standard research report format)
 - `number_of_queries`: Number of search queries to generate per section (default: 2)
 - `max_search_depth`: Maximum number of reflection and search iterations (default: 2)
-- `planner_provider`: Model provider for planning phase (default: OpenAI)
-- `planner_model`: Specific model for planning (default: "o3-mini")
+- `planner_provider`: Model provider for planning phase (default: "openai", but can be "groq")
+- `planner_model`: Specific model for planning (default: "o3-mini", but can be any Groq model such as "deepseek-r1-distill-llama-70b")
 - `writer_model`: Model for writing the report (default: "claude-3-5-sonnet-latest")
 - `search_api`: API to use for web searches (default: Tavily)
 
