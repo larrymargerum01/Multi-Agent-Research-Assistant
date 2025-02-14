@@ -9,6 +9,8 @@ Open Deep Research is a web research assistant that generates comprehensive repo
 - set the depth of search for each section (# of iterations of writing, reflection, search, re-write)
 - customize the writer model (e.g., Anthropic)
 
+![report-generation](https://github.com/user-attachments/assets/6595d5cd-c981-43ec-8e8b-209e4fefc596)
+
 ## 🚀 Quickstart
 
 Clone the repository:
