@@ -9,11 +9,6 @@ Open Deep Research is a web research assistant that generates comprehensive repo
 - set the depth of search for each section (# of iterations of writing, reflection, search, re-write)
 - customize the writer model (e.g., Anthropic)
 
-Short summary:
-<video src="https://github.com/user-attachments/assets/d9a66221-59cf-4c71-916d-33fdf3457fe8" controls></video>
-
-## 📺 Video Tutorials
-
 ## 🚀 Quickstart
 
 Clone the repository:
@@ -81,21 +76,25 @@ Use this to open the Studio UI:
 
 (1) Provide a `Topic` and hit `Submit`:
 
-![Screenshot 2025-01-31 at 8 12 21 PM](https://github.com/user-attachments/assets/70ce93d8-c29f-49ea-9e06-19377d8cac7b)
+<img width="1326" alt="input" src="https://github.com/user-attachments/assets/de264b1b-8ea5-4090-8e72-e1ef1230262f" />
 
-(2) This will generate a report plan:
+(2) This will generate a report plan and present it to the user for review.
 
-![Screenshot 2025-01-31 at 8 12 44 PM](https://github.com/user-attachments/assets/a464e71c-e122-422f-9736-62f8bf0b8777)
+(3) We can pass a string (`"..."`) with feedback to regenerate the plan based on the feedback.
 
-(3) You can review the section of the plan in Studio. If you like them, hit `Continue`.
+<img width="1326" alt="feedback" src="https://github.com/user-attachments/assets/c308e888-4642-4c74-bc78-76576a2da919" />
 
-(4) If you want to add feedback, add `Feedback On Report Plan` and `Submit`:
+(4) Or, we can just pass `true` to accept the plan.
 
-![Screenshot 2025-01-31 at 8 13 40 PM](https://github.com/user-attachments/assets/d82102f3-0adb-4eca-ae96-2fe720b22b71)
+<img width="1480" alt="accept" src="https://github.com/user-attachments/assets/ddeeb33b-fdce-494f-af8b-bd2acc1cef06" />
 
-(5) If you have given feedback, continue iterating until you are happy and then select `Accept Report Plan`:
+(5) Once accepted, the report sections will be generated.
 
-![Screenshot 2025-01-31 at 8 14 19 PM](https://github.com/user-attachments/assets/1d693e16-79df-4823-8355-482999546922)
+<img width="1326" alt="report_gen" src="https://github.com/user-attachments/assets/74ff01cc-e7ed-47b8-bd0c-4ef615253c46" />
+
+The report is produced as markdown.
+
+<img width="1326" alt="report" src="https://github.com/user-attachments/assets/92d9f7b7-3aea-4025-be99-7fb0d4b47289" />
 
 ## 📖 Customizing the report
 
