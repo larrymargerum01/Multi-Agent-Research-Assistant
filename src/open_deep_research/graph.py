@@ -19,7 +19,7 @@ from src.open_deep_research.utils import tavily_search_async, deduplicate_and_fo
 writer_model = ChatAnthropic(model=Configuration.writer_model, temperature=0) 
 
 # Nodes
-async def generate_report_plan(state: ReportState, config: RunnableConfig) -> Command[Literal["generate_report_plan","build_section_with_web_research"]]:
+async def generate_report_plan(state: ReportState, config: RunnableConfig):
     """ Generate the report plan """
 
     # Inputs
@@ -89,7 +89,13 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig) -> Co
     # Get sections
     sections = report_sections.sections
 
+    return {"sections": sections}
+
+def human_feedback(state: ReportState, config: RunnableConfig) -> Command[Literal["generate_report_plan","build_section_with_web_research"]]:
     """ Get feedback on the report plan """
+
+    # Get sections
+    sections = state['sections']
     sections_str = "\n\n".join(
         f"Section: {section.name}\n"
         f"Description: {section.description}\n"
@@ -98,7 +104,7 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig) -> Co
     )
 
     # Get feedback on the report plan from interrupt
-    feedback = interrupt(f"Please provide feedback on the following report plan. \n\n{sections_str}\n\n Pass 'True' to approve the report plan or provide feedback to regenerate the report plan:")
+    feedback = interrupt(f"Please provide feedback on the following report plan. \n\n{sections_str}\n\n Pass 'true' to approve the report plan or provide feedback to regenerate the report plan:")
 
     print(f"Feedback: {feedback}")
     print(f"Feedback type: {type(feedback)}")
@@ -111,8 +117,7 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig) -> Co
             Send("build_section_with_web_research", {"section": s, "search_iterations": 0}) 
             for s in sections 
             if s.research
-        ],
-        update={"sections": sections})
+        ])
     
     # If the user provides feedback, regenerate the report plan 
     elif isinstance(feedback, str):
@@ -288,6 +293,7 @@ section_builder.add_edge("search_web", "write_section")
 # Add nodes
 builder = StateGraph(ReportState, input=ReportStateInput, output=ReportStateOutput, config_schema=Configuration)
 builder.add_node("generate_report_plan", generate_report_plan)
+builder.add_node("human_feedback", human_feedback)
 builder.add_node("build_section_with_web_research", section_builder.compile())
 builder.add_node("gather_completed_sections", gather_completed_sections)
 builder.add_node("write_final_sections", write_final_sections)
@@ -295,6 +301,7 @@ builder.add_node("compile_final_report", compile_final_report)
 
 # Add edges
 builder.add_edge(START, "generate_report_plan")
+builder.add_edge("generate_report_plan", "human_feedback")
 builder.add_edge("build_section_with_web_research", "gather_completed_sections")
 builder.add_conditional_edges("gather_completed_sections", initiate_final_section_writing, ["write_final_sections"])
 builder.add_edge("write_final_sections", "compile_final_report")
