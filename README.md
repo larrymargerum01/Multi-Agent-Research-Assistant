@@ -1,6 +1,6 @@
 # Open Deep Research
  
-Open Deep Research is a web research assistant that generates comprehensive reports on any topic following a workflow similar to [OpenAI](https://openai.com/index/introducing-deep-research/) and [Gemini](https://blog.google/products/gemini/google-gemini-deep-research/) Deep Research.However, it allows you to customize the models, prompts, report structure, search API, and research depth. Specifically, you can customize:
+Open Deep Research is a web research assistant that generates comprehensive reports on any topic following a workflow similar to [OpenAI](https://openai.com/index/introducing-deep-research/) and [Gemini](https://blog.google/products/gemini/google-gemini-deep-research/) Deep Research. However, it allows you to customize the models, prompts, report structure, search API, and research depth. Specifically, you can customize:
 
 - provide an outline with a desired report structure
 - set the planner model (e.g., DeepSeek, OpenAI reasoning model, etc)
@@ -13,40 +13,98 @@ Open Deep Research is a web research assistant that generates comprehensive repo
 
 ## 🚀 Quickstart
 
+Ensure you have API keys set for your desired tools.
+
+Select a web search tool (by default Open Deep Research uses Tavily):
+
+* [Tavily API](https://tavily.com/)
+* [Perplexity API](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api)
+
+Select a writer model (by default Open Deep Research uses Anthropic):
+
+* [Anthropic](https://www.anthropic.com/)
+
+Select a planner model (by default Open Deep Research uses OpenAI o3-mini):
+
+* [OpenAI](https://openai.com/)
+* [Groq](https://groq.com/)
+
+### Using the package
+
+Install:
+```
+pip install open-deep-research
+```
+
+See [src/open_deep_research/graph.ipynb](src/open_deep_research/graph.ipynb) for an example of usage in a Jupyter notebook.
+
+Import and compile the graph:
+```python
+from langgraph.checkpoint.memory import MemorySaver
+from open_deep_research.graph import builder
+memory = MemorySaver()
+graph = builder.compile(checkpointer=memory)
+```
+
+View the graph:
+```python
+from IPython.display import Image, display
+display(Image(graph.get_graph(xray=1).draw_mermaid_png()))
+```
+
+Run the graph with a desired topic and configuration:
+```python
+import uuid 
+thread = {"configurable": {"thread_id": str(uuid.uuid4()),
+                           "search_api": "tavily",
+                           "planner_provider": "openai",
+                           "max_search_depth": 1,
+                           "planner_model": "o3-mini"}}
+
+topic = "Overview of the AI inference market with focus on Fireworks, Together.ai, Groq"
+async for event in graph.astream({"topic":topic,}, thread, stream_mode="updates"):
+    print(event)
+    print("\n")
+```
+
+The graph will stop when the report plan is generated, and you can pass feedback to update the report plan:
+```python
+from langgraph.types import Command
+async for event in graph.astream(Command(resume="Include a revenue estimate (ARR) in the sections"), thread, stream_mode="updates"):
+    print(event)
+    print("\n")
+```
+
+When you are satisfied with the report plan, you can pass `True` to proceed to report generation:
+```
+# Pass True to approve the report plan and proceed to report generation
+async for event in graph.astream(Command(resume=True), thread, stream_mode="updates"):
+    print(event)
+    print("\n")
+```
+
+### Running LangGraph Studio UI locally
+
 Clone the repository:
 ```bash
 git clone https://github.com/langchain-ai/open_deep_research.git
 cd open_deep_research
 ```
 
-Select a web search tool, by default it is Tavily:
-
-* [Tavily API](https://tavily.com/)
-* [Perplexity API](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api)
-
-Select a writer model, by default it is Anthropic:
-
-* [Anthropic](https://www.anthropic.com/)
-
-Select a planner model, by default it is OpenAI:
-* [OpenAI](https://openai.com/)
-* [Groq](https://groq.com/)
-
-Set API keys for your selections above:
+Edit the `.env` file with your API keys (e.g., the API keys for default selections are shown below):
 
 ```bash
 cp .env.example .env
 ```
 
-Edit the `.env` file with your API keys (e.g., the API keys for default selections are shown below):
-
+Set:
 ```bash
 export TAVILY_API_KEY=<your_tavily_api_key>
 export ANTHROPIC_API_KEY=<your_anthropic_api_key>
 export OPENAI_API_KEY=<your_openai_api_key>
 ```
 
-Launch the assistant with the LangGraph server, which will open in your browser:
+Launch the assistant with the LangGraph server locally, which will open in your browser:
 
 #### Mac
 
@@ -97,6 +155,8 @@ Use this to open the Studio UI:
 The report is produced as markdown.
 
 <img width="1326" alt="report" src="https://github.com/user-attachments/assets/92d9f7b7-3aea-4025-be99-7fb0d4b47289" />
+
+
 
 ## 📖 Customizing the report
 
