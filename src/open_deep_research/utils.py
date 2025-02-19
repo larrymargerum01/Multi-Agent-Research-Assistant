@@ -4,7 +4,7 @@ import asyncio
 import requests
 
 from tavily import TavilyClient, AsyncTavilyClient
-from src.open_deep_research.state import Section
+from open_deep_research.state import Section
 from langsmith import traceable
 
 tavily_client = TavilyClient()
