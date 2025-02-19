@@ -31,6 +31,12 @@ Select a planner model (by default Open Deep Research uses OpenAI o3-mini):
 
 ### Using the package
 
+(Recommended: Create a virtual environment):
+```
+python -m venv open_deep_research
+source open_deep_research/bin/activate
+```
+
 Install:
 ```
 pip install open-deep-research
