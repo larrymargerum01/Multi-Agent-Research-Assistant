@@ -1,6 +1,6 @@
 # Open Deep Research
  
-Open Deep Research is a web research assistant that generates comprehensive reports on any topic following a workflow similar to [OpenAI](https://openai.com/index/introducing-deep-research/) and [Gemini](https://blog.google/products/gemini/google-gemini-deep-research/) Deep Research.However, it allows you to customize the models, prompts, report structure, search API, and research depth. Specifically, you can customize:
+Open Deep Research is a web research assistant that generates comprehensive reports on any topic following a workflow similar to [OpenAI](https://openai.com/index/introducing-deep-research/) and [Gemini](https://blog.google/products/gemini/google-gemini-deep-research/) Deep Research. However, it allows you to customize the models, prompts, report structure, search API, and research depth. Specifically, you can customize:
 
 - provide an outline with a desired report structure
 - set the planner model (e.g., DeepSeek, OpenAI reasoning model, etc)
@@ -15,42 +15,46 @@ Open Deep Research is a web research assistant that generates comprehensive repo
 
 Ensure you have API keys set for your desired tools.
 
-Select a web search tool, by default it is Tavily:
+Select a web search tool (by default Open Deep Research uses Tavily):
 
 * [Tavily API](https://tavily.com/)
 * [Perplexity API](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api)
 
-Select a writer model, by default it is Anthropic:
+Select a writer model (by default Open Deep Research uses Anthropic):
 
 * [Anthropic](https://www.anthropic.com/)
 
-Select a planner model, by default it is OpenAI:
+Select a planner model (by default Open Deep Research uses OpenAI o3-mini):
+
 * [OpenAI](https://openai.com/)
 * [Groq](https://groq.com/)
 
 ### Using the package
 
-Install the latest version from PyPI:
+Install:
 ```
 pip install open-deep-research
 ```
 
-See `src/open_deep_research/graph.ipynb` for an example of usage in a Jupyter notebook:
+See [src/open_deep_research/graph.ipynb](src/open_deep_research/graph.ipynb) for an example of usage in a Jupyter notebook.
 
+Import and compile the graph:
 ```python
-from IPython.display import Image, display
-from langgraph.types import interrupt, Command
 from langgraph.checkpoint.memory import MemorySaver
 from open_deep_research.graph import builder
-
-# Compile and view
 memory = MemorySaver()
 graph = builder.compile(checkpointer=memory)
-display(Image(graph.get_graph(xray=1).draw_mermaid_png()))
+```
 
-# Run with config and topic
+View the graph:
+```python
+from IPython.display import Image, display
+display(Image(graph.get_graph(xray=1).draw_mermaid_png()))
+```
+
+Run the graph with a desired topic and configuration:
+```python
 import uuid 
-from IPython.display import Markdown
 thread = {"configurable": {"thread_id": str(uuid.uuid4()),
                            "search_api": "tavily",
                            "planner_provider": "openai",
@@ -58,15 +62,21 @@ thread = {"configurable": {"thread_id": str(uuid.uuid4()),
                            "planner_model": "o3-mini"}}
 
 topic = "Overview of the AI inference market with focus on Fireworks, Together.ai, Groq"
-
-# Run the graph until the interruption after the report plan is generated
 async for event in graph.astream({"topic":topic,}, thread, stream_mode="updates"):
     print(event)
     print("\n")
-# Pass feedback to update the report plan  
+```
+
+The graph will stop when the report plan is generated, and you can pass feedback to update the report plan:
+```python
+from langgraph.types import Command
 async for event in graph.astream(Command(resume="Include a revenue estimate (ARR) in the sections"), thread, stream_mode="updates"):
     print(event)
     print("\n")
+```
+
+When you are satisfied with the report plan, you can pass `True` to proceed to report generation:
+```
 # Pass True to approve the report plan and proceed to report generation
 async for event in graph.astream(Command(resume=True), thread, stream_mode="updates"):
     print(event)
