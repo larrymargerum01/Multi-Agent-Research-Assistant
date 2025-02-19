@@ -13,11 +13,7 @@ Open Deep Research is a web research assistant that generates comprehensive repo
 
 ## 🚀 Quickstart
 
-Clone the repository:
-```bash
-git clone https://github.com/langchain-ai/open_deep_research.git
-cd open_deep_research
-```
+Ensure you have API keys set for your desired tools.
 
 Select a web search tool, by default it is Tavily:
 
@@ -32,21 +28,73 @@ Select a planner model, by default it is OpenAI:
 * [OpenAI](https://openai.com/)
 * [Groq](https://groq.com/)
 
-Set API keys for your selections above:
+### Using the package
+
+Install the latest version from PyPI:
+```
+pip install open-deep-research
+```
+
+See `src/open_deep_research/graph.ipynb` for an example of usage in a Jupyter notebook:
+
+```python
+from IPython.display import Image, display
+from langgraph.types import interrupt, Command
+from langgraph.checkpoint.memory import MemorySaver
+from open_deep_research.graph import builder
+
+# Compile and view
+memory = MemorySaver()
+graph = builder.compile(checkpointer=memory)
+display(Image(graph.get_graph(xray=1).draw_mermaid_png()))
+
+# Run with config and topic
+import uuid 
+from IPython.display import Markdown
+thread = {"configurable": {"thread_id": str(uuid.uuid4()),
+                           "search_api": "tavily",
+                           "planner_provider": "openai",
+                           "max_search_depth": 1,
+                           "planner_model": "o3-mini"}}
+
+topic = "Overview of the AI inference market with focus on Fireworks, Together.ai, Groq"
+
+# Run the graph until the interruption after the report plan is generated
+async for event in graph.astream({"topic":topic,}, thread, stream_mode="updates"):
+    print(event)
+    print("\n")
+# Pass feedback to update the report plan  
+async for event in graph.astream(Command(resume="Include a revenue estimate (ARR) in the sections"), thread, stream_mode="updates"):
+    print(event)
+    print("\n")
+# Pass True to approve the report plan and proceed to report generation
+async for event in graph.astream(Command(resume=True), thread, stream_mode="updates"):
+    print(event)
+    print("\n")
+```
+
+### Running LangGraph Studio UI locally
+
+Clone the repository:
+```bash
+git clone https://github.com/langchain-ai/open_deep_research.git
+cd open_deep_research
+```
+
+Edit the `.env` file with your API keys (e.g., the API keys for default selections are shown below):
 
 ```bash
 cp .env.example .env
 ```
 
-Edit the `.env` file with your API keys (e.g., the API keys for default selections are shown below):
-
+Set:
 ```bash
 export TAVILY_API_KEY=<your_tavily_api_key>
 export ANTHROPIC_API_KEY=<your_anthropic_api_key>
 export OPENAI_API_KEY=<your_openai_api_key>
 ```
 
-Launch the assistant with the LangGraph server, which will open in your browser:
+Launch the assistant with the LangGraph server locally, which will open in your browser:
 
 #### Mac
 
@@ -97,6 +145,8 @@ Use this to open the Studio UI:
 The report is produced as markdown.
 
 <img width="1326" alt="report" src="https://github.com/user-attachments/assets/92d9f7b7-3aea-4025-be99-7fb0d4b47289" />
+
+
 
 ## 📖 Customizing the report
 
