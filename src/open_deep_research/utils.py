@@ -10,6 +10,12 @@ from langsmith import traceable
 tavily_client = TavilyClient()
 tavily_async_client = AsyncTavilyClient()
 
+def get_config_value(value):
+    """
+    Helper function to handle both string and enum cases of configuration values
+    """
+    return value if isinstance(value, str) else value.value
+
 def deduplicate_and_format_sources(search_response, max_tokens_per_source, include_raw_content=True):
     """
     Takes a list of search responses and formats them into a readable string.

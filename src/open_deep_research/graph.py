@@ -11,10 +11,7 @@ from langgraph.types import interrupt, Command
 from open_deep_research.state import ReportStateInput, ReportStateOutput, Sections, ReportState, SectionState, SectionOutputState, Queries, Feedback
 from open_deep_research.prompts import report_planner_query_writer_instructions, report_planner_instructions, query_writer_instructions, section_writer_instructions, final_section_writer_instructions, section_grader_instructions
 from open_deep_research.configuration import Configuration
-from open_deep_research.utils import tavily_search_async, deduplicate_and_format_sources, format_sections, perplexity_search
-
-# Set writer model
-writer_model = init_chat_model(model=Configuration.writer_model, model_provider=Configuration.writer_provider.value, temperature=0) 
+from open_deep_research.utils import tavily_search_async, deduplicate_and_format_sources, format_sections, perplexity_search, get_config_value
 
 # Nodes
 async def generate_report_plan(state: ReportState, config: RunnableConfig):
@@ -33,7 +30,10 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
     if isinstance(report_structure, dict):
         report_structure = str(report_structure)
 
-    # Generate search query
+    # Set writer model (model used for query writing and section writing)
+    writer_provider = get_config_value(configurable.writer_provider)
+    writer_model_name = get_config_value(configurable.writer_model)
+    writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider, temperature=0) 
     structured_llm = writer_model.with_structured_output(Queries)
 
     # Format system instructions
@@ -45,13 +45,8 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
     # Web search
     query_list = [query.search_query for query in results.queries]
 
-    # Handle both cases for search_api:
-    # 1. When selected in Studio UI -> returns a string (e.g. "tavily")
-    # 2. When using default -> returns an Enum (e.g. SearchAPI.TAVILY)
-    if isinstance(configurable.search_api, str):
-        search_api = configurable.search_api
-    else:
-        search_api = configurable.search_api.value
+    # Get the search API
+    search_api = get_config_value(configurable.search_api)
 
     # Search the web
     if search_api == "tavily":
@@ -73,7 +68,13 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
         planner_provider = configurable.planner_provider.value
 
     # Set the planner model
-    planner_llm = init_chat_model(model=Configuration.planner_model, model_provider=planner_provider, temperature=0)
+    if isinstance(configurable.planner_model, str):
+        planner_model = configurable.planner_model
+    else:
+        planner_model = configurable.planner_model.value
+
+    # Set the planner model
+    planner_llm = init_chat_model(model=planner_model, model_provider=planner_provider)
     
     # Generate sections 
     structured_llm = planner_llm.with_structured_output(Sections)
@@ -129,6 +130,9 @@ def generate_queries(state: SectionState, config: RunnableConfig):
     number_of_queries = configurable.number_of_queries
 
     # Generate queries 
+    writer_provider = get_config_value(configurable.writer_provider)
+    writer_model_name = get_config_value(configurable.writer_model)
+    writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider, temperature=0) 
     structured_llm = writer_model.with_structured_output(Queries)
 
     # Format system instructions
@@ -151,13 +155,8 @@ async def search_web(state: SectionState, config: RunnableConfig):
     # Web search
     query_list = [query.search_query for query in search_queries]
     
-    # Handle both cases for search_api:
-    # 1. When selected in Studio UI -> returns a string (e.g. "tavily")
-    # 2. When using default -> returns an Enum (e.g. SearchAPI.TAVILY)
-    if isinstance(configurable.search_api, str):
-        search_api = configurable.search_api
-    else:
-        search_api = configurable.search_api.value
+    # Get the search API
+    search_api = get_config_value(configurable.search_api)
 
     # Search the web
     if search_api == "tavily":
@@ -171,7 +170,7 @@ async def search_web(state: SectionState, config: RunnableConfig):
 
     return {"source_str": source_str, "search_iterations": state["search_iterations"] + 1}
 
-def write_section(state: SectionState, config: RunnableConfig) -> Command[Literal[END,"search_web"]]:
+def write_section(state: SectionState, config: RunnableConfig) -> Command[Literal[END, "search_web"]]:
     """ Write a section of the report """
 
     # Get state 
@@ -185,6 +184,9 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
     system_instructions = section_writer_instructions.format(section_title=section.name, section_topic=section.description, context=source_str, section_content=section.content)
 
     # Generate section  
+    writer_provider = get_config_value(configurable.writer_provider)
+    writer_model_name = get_config_value(configurable.writer_model)
+    writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider, temperature=0) 
     section_content = writer_model.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate a report section based on the provided sources.")])
     
     # Write content to the section object  
@@ -210,8 +212,11 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
         goto="search_web"
         )
     
-def write_final_sections(state: SectionState):
+def write_final_sections(state: SectionState, config: RunnableConfig):
     """ Write final sections of the report, which do not require web search and use the completed sections as context """
+
+    # Get configuration
+    configurable = Configuration.from_runnable_config(config)
 
     # Get state 
     section = state["section"]
@@ -221,6 +226,9 @@ def write_final_sections(state: SectionState):
     system_instructions = final_section_writer_instructions.format(section_title=section.name, section_topic=section.description, context=completed_report_sections)
 
     # Generate section  
+    writer_provider = get_config_value(configurable.writer_provider)
+    writer_model_name = get_config_value(configurable.writer_model)
+    writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider, temperature=0) 
     section_content = writer_model.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate a report section based on the provided sources.")])
     
     # Write content to section 

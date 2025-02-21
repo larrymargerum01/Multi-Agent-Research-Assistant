@@ -28,6 +28,8 @@ class PlannerProvider(Enum):
 
 class WriterProvider(Enum):
     ANTHROPIC = "anthropic"
+    OPENAI = "openai"
+    GROQ = "groq"
 
 @dataclass(kw_only=True)
 class Configuration:

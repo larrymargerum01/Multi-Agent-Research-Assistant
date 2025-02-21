@@ -20,9 +20,11 @@ Select a web search tool (by default Open Deep Research uses Tavily):
 * [Tavily API](https://tavily.com/)
 * [Perplexity API](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api)
 
-Select a writer model (by default Open Deep Research uses Anthropic):
+Select a writer model (by default Open Deep Research uses Anthropic Claude 3.5 Sonnet):
 
 * [Anthropic](https://www.anthropic.com/)
+* [OpenAI](https://openai.com/)
+* [Groq](https://groq.com/)
 
 Select a planner model (by default Open Deep Research uses OpenAI o3-mini):
 
@@ -64,8 +66,11 @@ import uuid
 thread = {"configurable": {"thread_id": str(uuid.uuid4()),
                            "search_api": "tavily",
                            "planner_provider": "openai",
+                           "planner_model": "o3-mini",
+                           "writer_provider": "anthropic",
+                           "writer_model": "claude-3-5-sonnet-latest",
                            "max_search_depth": 1,
-                           "planner_model": "o3-mini"}}
+                           }}
 
 topic = "Overview of the AI inference market with focus on Fireworks, Together.ai, Groq"
 async for event in graph.astream({"topic":topic,}, thread, stream_mode="updates"):
@@ -162,8 +167,6 @@ The report is produced as markdown.
 
 <img width="1326" alt="report" src="https://github.com/user-attachments/assets/92d9f7b7-3aea-4025-be99-7fb0d4b47289" />
 
-
-
 ## 📖 Customizing the report
 
 You can customize the research assistant's behavior through several parameters:
@@ -177,6 +180,19 @@ You can customize the research assistant's behavior through several parameters:
 - `search_api`: API to use for web searches (default: Tavily)
 
 These configurations allow you to fine-tune the research process based on your needs, from adjusting the depth of research to selecting specific AI models for different phases of report generation.
+
+### Model Considerations
+
+(1) With Groq, there are token per minute (TPM) limits if you are on the `on_demand` service tier:
+- The `on_demand` service tier has a limit of `6000 TPM`
+- You will want a [paid plan](https://github.com/cline/cline/issues/47#issuecomment-2640992272) for section writing with Groq models
+
+(2) `deepseek` [isn't great at function calling](https://api-docs.deepseek.com/guides/reasoning_model). Our assistant uses function calling to generate structured outputs for report sections and search queries within each section.  
+- Because, section writing performs a larger number of function calls, OpenAI, Anthropic, and certain OSS models that are stromng at function calling like Groq's `llama-3.3-70b-versatile` are advised.
+- If you see the following error, it is likely due to the model not being able to produce structured outputs (see [trace](https://smith.langchain.com/public/8a6da065-3b8b-4a92-8df7-5468da336cbe/r)):
+```
+groq.APIError: Failed to call a function. Please adjust your prompt. See 'failed_generation' for more details.
+```
 
 ## How it works
    
