@@ -52,6 +52,7 @@ class ReportState(TypedDict):
     final_report: str # Final report
 
 class SectionState(TypedDict):
+    topic: str # Report topic
     section: Section # Report section  
     search_iterations: int # Number of search iterations done
     search_queries: list[SearchQuery] # List of search queries

@@ -89,6 +89,7 @@ def human_feedback(state: ReportState, config: RunnableConfig) -> Command[Litera
     """ Get feedback on the report plan """
 
     # Get sections
+    topic = state["topic"]
     sections = state['sections']
     sections_str = "\n\n".join(
         f"Section: {section.name}\n"
@@ -106,7 +107,7 @@ def human_feedback(state: ReportState, config: RunnableConfig) -> Command[Litera
     if isinstance(feedback, bool):
         # Treat this as approve and kick off section writing
         return Command(goto=[
-            Send("build_section_with_web_research", {"section": s, "search_iterations": 0}) 
+            Send("build_section_with_web_research", {"topic": topic, "section": s, "search_iterations": 0}) 
             for s in sections 
             if s.research
         ])
@@ -123,6 +124,7 @@ def generate_queries(state: SectionState, config: RunnableConfig):
     """ Generate search queries for a report section """
 
     # Get state 
+    topic = state["topic"]
     section = state["section"]
 
     # Get configuration
@@ -136,7 +138,7 @@ def generate_queries(state: SectionState, config: RunnableConfig):
     structured_llm = writer_model.with_structured_output(Queries)
 
     # Format system instructions
-    system_instructions = query_writer_instructions.format(section_topic=section.description, number_of_queries=number_of_queries)
+    system_instructions = query_writer_instructions.format(topic=topic, section_topic=section.description, number_of_queries=number_of_queries)
 
     # Generate queries  
     queries = structured_llm.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate search queries on the provided topic.")])
@@ -174,6 +176,7 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
     """ Write a section of the report """
 
     # Get state 
+    topic = state["topic"]
     section = state["section"]
     source_str = state["source_str"]
 
@@ -181,7 +184,7 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
     configurable = Configuration.from_runnable_config(config)
 
     # Format system instructions
-    system_instructions = section_writer_instructions.format(section_title=section.name, section_topic=section.description, context=source_str, section_content=section.content)
+    system_instructions = section_writer_instructions.format(topic=topic, section_title=section.name, section_topic=section.description, context=source_str, section_content=section.content)
 
     # Generate section  
     writer_provider = get_config_value(configurable.writer_provider)
@@ -193,7 +196,7 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
     section.content = section_content.content
 
     # Grade prompt 
-    section_grader_instructions_formatted = section_grader_instructions.format(section_topic=section.description,section=section.content)
+    section_grader_instructions_formatted = section_grader_instructions.format(topic=topic, section_topic=section.description,section=section.content)
 
     # Feedback 
     structured_llm = writer_model.with_structured_output(Feedback)
@@ -219,11 +222,12 @@ def write_final_sections(state: SectionState, config: RunnableConfig):
     configurable = Configuration.from_runnable_config(config)
 
     # Get state 
+    topic = state["topic"]
     section = state["section"]
     completed_report_sections = state["report_sections_from_research"]
     
     # Format system instructions
-    system_instructions = final_section_writer_instructions.format(section_title=section.name, section_topic=section.description, context=completed_report_sections)
+    system_instructions = final_section_writer_instructions.format(topic=topic, section_title=section.name, section_topic=section.description, context=completed_report_sections)
 
     # Generate section  
     writer_provider = get_config_value(configurable.writer_provider)
@@ -253,7 +257,7 @@ def initiate_final_section_writing(state: ReportState):
 
     # Kick off section writing in parallel via Send() API for any sections that do not require research
     return [
-        Send("write_final_sections", {"section": s, "report_sections_from_research": state["report_sections_from_research"]}) 
+        Send("write_final_sections", {"topic": state["topic"], "section": s, "report_sections_from_research": state["report_sections_from_research"]}) 
         for s in state["sections"] 
         if not s.research
     ]

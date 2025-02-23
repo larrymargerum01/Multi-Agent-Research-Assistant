@@ -61,6 +61,10 @@ Here is feedback on the report structure from review (if any):
 # Query writer instructions
 query_writer_instructions="""You are an expert technical writer crafting targeted web search queries that will gather comprehensive information for writing a technical report section.
 
+<Report topic>
+{topic}
+</Report topic>
+
 <Section topic>
 {section_topic}
 </Section topic>
@@ -79,6 +83,10 @@ Make the queries specific enough to find high-quality, relevant sources.
 
 # Section writer instructions
 section_writer_instructions = """You are an expert technical writer crafting one section of a technical report.
+
+<Report topic>
+{topic}
+</Report topic>
 
 <Section topic>
 {section_topic}
@@ -129,6 +137,10 @@ section_writer_instructions = """You are an expert technical writer crafting one
 # Instructions for section grading
 section_grader_instructions = """Review a report section relative to the specified topic:
 
+<Report topic>
+{topic}
+</Report topic>
+
 <section topic>
 {section_topic}
 </section topic>
@@ -154,6 +166,10 @@ If the section fails any criteria, generate specific follow-up search queries to
 """
 
 final_section_writer_instructions="""You are an expert technical writer crafting a section that synthesizes information from the rest of the report.
+
+<Report topic>
+{topic}
+</Report topic>
 
 <Section topic> 
 {section_topic}
