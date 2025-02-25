@@ -28,6 +28,7 @@ Select a writer model (by default Open Deep Research uses Anthropic Claude 3.5 S
 
 Select a planner model (by default Open Deep Research uses OpenAI o3-mini):
 
+* [Anthropic](https://www.anthropic.com/)
 * [OpenAI](https://openai.com/)
 * [Groq](https://groq.com/)
 

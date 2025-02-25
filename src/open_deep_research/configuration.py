@@ -23,6 +23,7 @@ class SearchAPI(Enum):
     TAVILY = "tavily"
 
 class PlannerProvider(Enum):
+    ANTHROPIC = "anthropic"
     OPENAI = "openai"
     GROQ = "groq"
 
