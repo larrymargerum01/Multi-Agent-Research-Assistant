@@ -77,11 +77,17 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
         planner_model = configurable.planner_model.value
 
     # Set the planner model
-    planner_llm = init_chat_model(model=planner_model, model_provider=planner_provider)
-    
-    # Generate sections 
-    structured_llm = planner_llm.with_structured_output(Sections)
-    report_sections = structured_llm.invoke([SystemMessage(content=system_instructions_sections)]+[HumanMessage(content="Generate the sections of the report. Your response must include a 'sections' field containing a list of sections. Each section must have: name, description, plan, research, and content fields.")])
+    if planner_model == "claude-3-7-sonnet-latest":
+        planner_llm = init_chat_model(model=planner_model, model_provider=planner_provider, max_tokens=20_000, thinking={"type": "enabled", "budget_tokens": 16_000})
+        # with_structured_output uses forced tool calling, which thinking mode with Claude 3.7 does not support. Use bind_tools to generate the report sections
+        structured_llm = planner_llm.bind_tools([Sections])
+        report_sections = structured_llm.invoke([SystemMessage(content=system_instructions_sections)]+[HumanMessage(content="Generate the sections of the report. Your response must include a 'sections' field containing a list of sections. Each section must have: name, description, plan, research, and content fields.")])
+        tool_call = report_sections.tool_calls[0]['args']
+        report_sections = Sections.model_validate(tool_call)
+    else:
+        planner_llm = init_chat_model(model=planner_model, model_provider=planner_provider)
+        structured_llm = planner_llm.with_structured_output(Sections)
+        report_sections = structured_llm.invoke([SystemMessage(content=system_instructions_sections)]+[HumanMessage(content="Generate the sections of the report. Your response must include a 'sections' field containing a list of sections. Each section must have: name, description, plan, research, and content fields.")])
 
     # Get sections
     sections = report_sections.sections
