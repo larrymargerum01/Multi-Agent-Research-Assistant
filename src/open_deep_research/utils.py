@@ -4,6 +4,8 @@ import asyncio
 import requests
 
 from tavily import TavilyClient, AsyncTavilyClient
+from exa_py import Exa
+from typing import List, Optional
 from open_deep_research.state import Section
 from langsmith import traceable
 
@@ -219,5 +221,208 @@ def perplexity_search(search_queries):
             "images": [],
             "results": results
         })
+    
+    return search_docs
+
+@traceable
+async def exa_search(search_queries, max_characters: Optional[int] = None, num_results=5, 
+                     include_domains: Optional[List[str]] = None, 
+                     exclude_domains: Optional[List[str]] = None,
+                     subpages: Optional[int] = None):
+    """Search the web using the Exa API.
+    
+    Args:
+        search_queries (List[SearchQuery]): List of search queries to process
+        max_characters (int, optional): Maximum number of characters to retrieve for each result's raw content.
+                                       If None, the text parameter will be set to True instead of an object.
+        num_results (int): Number of search results per query. Defaults to 5.
+        include_domains (List[str], optional): List of domains to include in search results. 
+            When specified, only results from these domains will be returned.
+        exclude_domains (List[str], optional): List of domains to exclude from search results.
+            Cannot be used together with include_domains.
+        subpages (int, optional): Number of subpages to retrieve per result. If None, subpages are not retrieved.
+        
+    Returns:
+        List[dict]: List of search responses from Exa API, one per query. Each response has format:
+            {
+                'query': str,                    # The original search query
+                'follow_up_questions': None,      
+                'answer': None,
+                'images': list,
+                'results': [                     # List of search results
+                    {
+                        'title': str,            # Title of the search result
+                        'url': str,              # URL of the result
+                        'content': str,          # Summary/snippet of content
+                        'score': float,          # Relevance score
+                        'raw_content': str|None  # Full content or None for secondary citations
+                    },
+                    ...
+                ]
+            }
+    """
+    # Check that include_domains and exclude_domains are not both specified
+    if include_domains and exclude_domains:
+        raise ValueError("Cannot specify both include_domains and exclude_domains")
+    
+    # Initialize Exa client (API key should be configured in your .env file)
+    exa = Exa(api_key = f"{os.getenv('EXA_API_KEY')}")
+    
+    # Define the function to process a single query
+    async def process_query(query):
+        # Use run_in_executor to make the synchronous exa call in a non-blocking way
+        loop = asyncio.get_event_loop()
+        
+        # Define the function for the executor with all parameters
+        def exa_search_fn():
+            # Build parameters dictionary
+            kwargs = {
+                # Set text to True if max_characters is None, otherwise use an object with max_characters
+                "text": True if max_characters is None else {"max_characters": max_characters},
+                "summary": True,  # This is an amazing feature by EXA. It provides an AI generated summary of the content based on the query
+                "num_results": num_results
+            }
+            
+            # Add optional parameters only if they are provided
+            if subpages is not None:
+                kwargs["subpages"] = subpages
+                
+            if include_domains:
+                kwargs["include_domains"] = include_domains
+            elif exclude_domains:
+                kwargs["exclude_domains"] = exclude_domains
+                
+            return exa.search_and_contents(query, **kwargs)
+        
+        response = await loop.run_in_executor(None, exa_search_fn)
+        
+        # Format the response to match the expected output structure
+        formatted_results = []
+        seen_urls = set()  # Track URLs to avoid duplicates
+        
+        # Helper function to safely get value regardless of if item is dict or object
+        def get_value(item, key, default=None):
+            if isinstance(item, dict):
+                return item.get(key, default)
+            else:
+                return getattr(item, key, default) if hasattr(item, key) else default
+        
+        # Access the results from the SearchResponse object
+        results_list = get_value(response, 'results', [])
+        
+        # First process all main results
+        for result in results_list:
+            # Get the score with a default of 0.0 if it's None or not present
+            score = get_value(result, 'score', 0.0)
+            
+            # Combine summary and text for content if both are available
+            text_content = get_value(result, 'text', '')
+            summary_content = get_value(result, 'summary', '')
+            
+            content = text_content
+            if summary_content:
+                if content:
+                    content = f"{summary_content}\n\n{content}"
+                else:
+                    content = summary_content
+            
+            title = get_value(result, 'title', '')
+            url = get_value(result, 'url', '')
+            
+            # Skip if we've seen this URL before (removes duplicate entries)
+            if url in seen_urls:
+                continue
+                
+            seen_urls.add(url)
+            
+            # Main result entry
+            result_entry = {
+                "title": title,
+                "url": url,
+                "content": content,
+                "score": score,
+                "raw_content": text_content
+            }
+            
+            # Add the main result to the formatted results
+            formatted_results.append(result_entry)
+        
+        # Now process subpages only if the subpages parameter was provided
+        if subpages is not None:
+            for result in results_list:
+                subpages_list = get_value(result, 'subpages', [])
+                for subpage in subpages_list:
+                    # Get subpage score
+                    subpage_score = get_value(subpage, 'score', 0.0)
+                    
+                    # Combine summary and text for subpage content
+                    subpage_text = get_value(subpage, 'text', '')
+                    subpage_summary = get_value(subpage, 'summary', '')
+                    
+                    subpage_content = subpage_text
+                    if subpage_summary:
+                        if subpage_content:
+                            subpage_content = f"{subpage_summary}\n\n{subpage_content}"
+                        else:
+                            subpage_content = subpage_summary
+                    
+                    subpage_url = get_value(subpage, 'url', '')
+                    
+                    # Skip if we've seen this URL before
+                    if subpage_url in seen_urls:
+                        continue
+                        
+                    seen_urls.add(subpage_url)
+                    
+                    formatted_results.append({
+                        "title": get_value(subpage, 'title', ''),
+                        "url": subpage_url,
+                        "content": subpage_content,
+                        "score": subpage_score,
+                        "raw_content": subpage_text
+                    })
+        
+        # Collect images if available (only from main results to avoid duplication)
+        images = []
+        for result in results_list:
+            image = get_value(result, 'image')
+            if image and image not in images:  # Avoid duplicate images
+                images.append(image)
+                
+        return {
+            "query": query,
+            "follow_up_questions": None,
+            "answer": None,
+            "images": images,
+            "results": formatted_results
+        }
+    
+    # Process all queries sequentially with delay to respect rate limit
+    search_docs = []
+    for i, query in enumerate(search_queries):
+        try:
+            # Add delay between requests (0.25s = 4 requests per second, well within the 5/s limit)
+            if i > 0:  # Don't delay the first request
+                await asyncio.sleep(0.25)
+            
+            result = await process_query(query)
+            search_docs.append(result)
+        except Exception as e:
+            # Handle exceptions gracefully
+            print(f"Error processing query '{query}': {str(e)}")
+            # Add a placeholder result for failed queries to maintain index alignment
+            search_docs.append({
+                "query": query,
+                "follow_up_questions": None,
+                "answer": None,
+                "images": [],
+                "results": [],
+                "error": str(e)
+            })
+            
+            # Add additional delay if we hit a rate limit error
+            if "429" in str(e):
+                print("Rate limit exceeded. Adding additional delay...")
+                await asyncio.sleep(1.0)  # Add a longer delay if we hit a rate limit
     
     return search_docs
