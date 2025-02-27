@@ -41,7 +41,7 @@ class Configuration:
     planner_provider: PlannerProvider = PlannerProvider.ANTHROPIC  # Defaults to Anthropic as provider
     planner_model: str = "claude-3-7-sonnet-latest" # Defaults to claude-3-7-sonnet-latest
     writer_provider: WriterProvider = WriterProvider.ANTHROPIC # Defaults to Anthropic as provider
-    writer_model: str = "claude-3-7-sonnet-latest" # Defaults to claude-3-7-sonnet-latest
+    writer_model: str = "claude-3-5-sonnet-latest" # Defaults to claude-3-5-sonnet-latest
     search_api: SearchAPI = SearchAPI.TAVILY # Default to TAVILY
 
     @classmethod

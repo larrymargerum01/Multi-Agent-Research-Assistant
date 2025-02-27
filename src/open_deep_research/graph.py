@@ -62,23 +62,15 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
     # Format system instructions
     system_instructions_sections = report_planner_instructions.format(topic=topic, report_organization=report_structure, context=source_str, feedback=feedback)
 
-    # Set the planner provider
-    if isinstance(configurable.planner_provider, str):
-        planner_provider = configurable.planner_provider
-    else:
-        planner_provider = configurable.planner_provider.value
-
-    # Set the planner model
-    if isinstance(configurable.planner_model, str):
-        planner_model = configurable.planner_model
-    else:
-        planner_model = configurable.planner_model.value
+    # Set the planner
+    planner_provider = get_config_value(configurable.planner_provider)
+    planner_model = get_config_value(configurable.planner_model)
 
     # Report planner instructions
     planner_message = """Generate the sections of the report. Your response must include a 'sections' field containing a list of sections. 
                         Each section must have: name, description, plan, research, and content fields."""
 
-    # Set the planner model
+    # Run the planner
     if planner_model == "claude-3-7-sonnet-latest":
 
         # Allocate a thinking budget for claude-3-7-sonnet-latest as the planner model
@@ -237,13 +229,17 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
                                                                                section=section.content, 
                                                                                number_of_follow_up_queries=configurable.number_of_queries)
 
-    # If the writer model is claude-3-7-sonnet-latest, we need to use bind_tools to use thinking when generating the feedback 
-    if writer_model_name == "claude-3-7-sonnet-latest":
+    # Use planner model for reflection
+    planner_provider = get_config_value(configurable.planner_provider)
+    planner_model = get_config_value(configurable.planner_model)
+
+    # If the planner model is claude-3-7-sonnet-latest, we need to use bind_tools to use thinking when generating the feedback 
+    if planner_model == "claude-3-7-sonnet-latest":
         # Allocate a thinking budget for claude-3-7-sonnet-latest as the planner model
-        reflection_model = init_chat_model(model=writer_model_name, 
-                                      model_provider=writer_provider, 
-                                      max_tokens=20_000, 
-                                      thinking={"type": "enabled", "budget_tokens": 16_000})
+        reflection_model = init_chat_model(model=planner_model, 
+                                           model_provider=planner_provider, 
+                                           max_tokens=20_000, 
+                                           thinking={"type": "enabled", "budget_tokens": 16_000})
         
         # with_structured_output uses forced tool calling, which thinking mode with Claude 3.7 does not support
         # So, we use bind_tools without enforcing tool calling to generate the report sections
@@ -253,7 +249,9 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
         feedback = Feedback.model_validate(tool_call)
     
     else:
-        reflection_model = writer_model.with_structured_output(Feedback)
+        reflection_model = init_chat_model(model=planner_model, 
+                                           model_provider=planner_provider).with_structured_output(Feedback)
+        
         feedback = reflection_model.invoke([SystemMessage(content=section_grader_instructions_formatted),
                                             HumanMessage(content=section_grader_message)])
 
