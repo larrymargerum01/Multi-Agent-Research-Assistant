@@ -7,7 +7,7 @@ from tavily import TavilyClient, AsyncTavilyClient
 from langchain_community.retrievers import ArxivRetriever
 from langchain_community.utilities.pubmed import PubMedAPIWrapper
 from exa_py import Exa
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from open_deep_research.state import Section
 from langsmith import traceable
 
@@ -20,6 +20,37 @@ def get_config_value(value):
     Helper function to handle both string and enum cases of configuration values
     """
     return value if isinstance(value, str) else value.value
+
+# Helper function to get search parameters based on the search API and config
+def get_search_params(search_api: str, search_api_config: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Filters the search_api_config dictionary to include only parameters accepted by the specified search API.
+
+    Args:
+        search_api (str): The search API identifier (e.g., "exa", "tavily").
+        search_api_config (Optional[Dict[str, Any]]): The configuration dictionary for the search API.
+
+    Returns:
+        Dict[str, Any]: A dictionary of parameters to pass to the search function.
+    """
+    # Define accepted parameters for each search API
+    SEARCH_API_PARAMS = {
+        "exa": ["max_characters", "num_results", "include_domains", "exclude_domains", "subpages"],
+        "tavily": [],  # Tavily currently accepts no additional parameters
+        "perplexity": [],  # Perplexity accepts no additional parameters
+        "arxiv": ["load_max_docs", "get_full_documents", "load_all_available_meta"],
+        "pubmed": ["top_k_results", "email", "api_key", "doc_content_chars_max"],
+    }
+
+    # Get the list of accepted parameters for the given search API
+    accepted_params = SEARCH_API_PARAMS.get(search_api, [])
+
+    # If no config provided, return an empty dict
+    if not search_api_config:
+        return {}
+
+    # Filter the config to only include accepted parameters
+    return {k: v for k, v in search_api_config.items() if k in accepted_params}
 
 def deduplicate_and_format_sources(search_response, max_tokens_per_source, include_raw_content=True):
     """

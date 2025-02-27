@@ -184,6 +184,29 @@ You can customize the research assistant's behavior through several parameters:
 
 These configurations allow you to fine-tune the research process based on your needs, from adjusting the depth of research to selecting specific AI models for different phases of report generation.
 
+### Search API Configuration
+
+Not all search APIs support additional configuration parameters. Here are the ones that do:
+
+- **Exa**: `max_characters`, `num_results`, `include_domains`, `exclude_domains`, `subpages`
+  - Note: `include_domains` and `exclude_domains` cannot be used together
+  - Particularly useful when you need to narrow your research to specific trusted sources, ensure information accuracy, or when your research requires using specified domains (e.g., academic journals, government sites)
+  - Provides AI-generated summaries tailored to your specific query, making it easier to extract relevant information from search results
+- **ArXiv**: `load_max_docs`, `get_full_documents`, `load_all_available_meta`
+- **PubMed**: `top_k_results`, `email`, `api_key`, `doc_content_chars_max`
+
+Example with Exa configuration:
+```python
+thread = {"configurable": {"thread_id": str(uuid.uuid4()),
+                           "search_api": "exa",
+                           "search_api_config": {
+                               "num_results": 5,
+                               "include_domains": ["nature.com", "sciencedirect.com"]
+                           },
+                           # Other configuration...
+                           }}
+```
+
 ### Model Considerations
 
 (1) With Groq, there are token per minute (TPM) limits if you are on the `on_demand` service tier:
