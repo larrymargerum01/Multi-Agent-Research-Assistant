@@ -20,13 +20,13 @@ Select a web search tool (by default Open Deep Research uses Tavily):
 * [Tavily API](https://tavily.com/)
 * [Perplexity API](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api)
 
-Select a writer model (by default Open Deep Research uses Anthropic Claude 3.5 Sonnet):
+Select a writer model (by default Open Deep Research uses Anthropic Claude 3.7 Sonnet):
 
 * [Anthropic](https://www.anthropic.com/)
 * [OpenAI](https://openai.com/)
 * [Groq](https://groq.com/)
 
-Select a planner model (by default Open Deep Research uses OpenAI o3-mini):
+Select a planner model (by default Open Deep Research uses Claude 3.7 Sonnet with thinking enabled):
 
 * [Anthropic](https://www.anthropic.com/)
 * [OpenAI](https://openai.com/)
@@ -43,6 +43,12 @@ source open_deep_research/bin/activate
 Install:
 ```
 pip install open-deep-research
+```
+
+Ensure API keys are set for web search and planner / writer models, for example:
+```bash
+export TAVILY_API_KEY=<your_tavily_api_key>
+export ANTHROPIC_API_KEY=<your_anthropic_api_key>
 ```
 
 See [src/open_deep_research/graph.ipynb](src/open_deep_research/graph.ipynb) for an example of usage in a Jupyter notebook.
@@ -67,7 +73,7 @@ import uuid
 thread = {"configurable": {"thread_id": str(uuid.uuid4()),
                            "search_api": "tavily",
                            "planner_provider": "openai",
-                           "planner_model": "o3-mini",
+                           "planner_model": "claude-3-7-sonnet-latest",
                            "writer_provider": "anthropic",
                            "writer_model": "claude-3-5-sonnet-latest",
                            "max_search_depth": 1,
@@ -113,7 +119,6 @@ Set:
 ```bash
 export TAVILY_API_KEY=<your_tavily_api_key>
 export ANTHROPIC_API_KEY=<your_anthropic_api_key>
-export OPENAI_API_KEY=<your_openai_api_key>
 ```
 
 Launch the assistant with the LangGraph server locally, which will open in your browser:
