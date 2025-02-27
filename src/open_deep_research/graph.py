@@ -11,7 +11,7 @@ from langgraph.types import interrupt, Command
 from open_deep_research.state import ReportStateInput, ReportStateOutput, Sections, ReportState, SectionState, SectionOutputState, Queries, Feedback
 from open_deep_research.prompts import report_planner_query_writer_instructions, report_planner_instructions, query_writer_instructions, section_writer_instructions, final_section_writer_instructions, section_grader_instructions
 from open_deep_research.configuration import Configuration
-from open_deep_research.utils import tavily_search_async, exa_search, deduplicate_and_format_sources, format_sections, perplexity_search, get_config_value
+from open_deep_research.utils import tavily_search_async, exa_search, arxiv_search_async, pubmed_search_async, deduplicate_and_format_sources, format_sections, perplexity_search, get_config_value
 
 # Nodes
 async def generate_report_plan(state: ReportState, config: RunnableConfig):
@@ -57,6 +57,12 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
         source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
     elif search_api == "exa":
         search_results = await exa_search(query_list)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    elif search_api == "arxiv":
+        search_results = await arxiv_search_async(query_list)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    elif search_api == "pubmed":
+        search_results = await pubmed_search_async(query_list)
         source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
     else:
         raise ValueError(f"Unsupported search API: {configurable.search_api}")
@@ -178,6 +184,12 @@ async def search_web(state: SectionState, config: RunnableConfig):
         source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=5000, include_raw_content=False)
     elif search_api == "exa":
         search_results = await exa_search(query_list)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    elif search_api == "arxiv":
+        search_results = await arxiv_search_async(query_list)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    elif search_api == "pubmed":
+        search_results = await pubmed_search_async(query_list)
         source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
     else:
         raise ValueError(f"Unsupported search API: {configurable.search_api}")

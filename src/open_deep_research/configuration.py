@@ -22,6 +22,8 @@ class SearchAPI(Enum):
     PERPLEXITY = "perplexity"
     TAVILY = "tavily"
     EXA = "exa"
+    ARXIV = "arxiv"
+    PUBMED = "pubmed"
 
 class PlannerProvider(Enum):
     ANTHROPIC = "anthropic"
@@ -43,7 +45,7 @@ class Configuration:
     planner_model: str = "o3-mini" # Defaults to OpenAI o3-mini as planner model
     writer_provider: WriterProvider = WriterProvider.ANTHROPIC # Defaults to Anthropic as provider
     writer_model: str = "claude-3-5-sonnet-latest" # Defaults to Anthropic as provider
-    search_api: SearchAPI = SearchAPI.EXA # Default to TAVILY
+    search_api: SearchAPI = SearchAPI.PUBMED # Default to TAVILY
 
     @classmethod
     def from_runnable_config(
