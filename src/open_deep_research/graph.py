@@ -43,7 +43,8 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
     system_instructions_query = report_planner_query_writer_instructions.format(topic=topic, report_organization=report_structure, number_of_queries=number_of_queries)
 
     # Generate queries  
-    results = structured_llm.invoke([SystemMessage(content=system_instructions_query)]+[HumanMessage(content="Generate search queries that will help with planning the sections of the report.")])
+    results = structured_llm.invoke([SystemMessage(content=system_instructions_query),
+                                     HumanMessage(content="Generate search queries that will help with planning the sections of the report.")])
 
     # Web search
     query_list = [query.search_query for query in results.queries]
@@ -70,30 +71,37 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
     # Format system instructions
     system_instructions_sections = report_planner_instructions.format(topic=topic, report_organization=report_structure, context=source_str, feedback=feedback)
 
-    # Set the planner provider
-    if isinstance(configurable.planner_provider, str):
-        planner_provider = configurable.planner_provider
-    else:
-        planner_provider = configurable.planner_provider.value
+    # Set the planner
+    planner_provider = get_config_value(configurable.planner_provider)
+    planner_model = get_config_value(configurable.planner_model)
 
-    # Set the planner model
-    if isinstance(configurable.planner_model, str):
-        planner_model = configurable.planner_model
-    else:
-        planner_model = configurable.planner_model.value
+    # Report planner instructions
+    planner_message = """Generate the sections of the report. Your response must include a 'sections' field containing a list of sections. 
+                        Each section must have: name, description, plan, research, and content fields."""
 
-    # Set the planner model
+    # Run the planner
     if planner_model == "claude-3-7-sonnet-latest":
-        planner_llm = init_chat_model(model=planner_model, model_provider=planner_provider, max_tokens=20_000, thinking={"type": "enabled", "budget_tokens": 16_000})
-        # with_structured_output uses forced tool calling, which thinking mode with Claude 3.7 does not support. Use bind_tools to generate the report sections
-        structured_llm = planner_llm.bind_tools([Sections])
-        report_sections = structured_llm.invoke([SystemMessage(content=system_instructions_sections)]+[HumanMessage(content="Generate the sections of the report. Your response must include a 'sections' field containing a list of sections. Each section must have: name, description, plan, research, and content fields.")])
+
+        # Allocate a thinking budget for claude-3-7-sonnet-latest as the planner model
+        planner_llm = init_chat_model(model=planner_model, 
+                                      model_provider=planner_provider, 
+                                      max_tokens=20_000, 
+                                      thinking={"type": "enabled", "budget_tokens": 16_000})
+        
+        # with_structured_output uses forced tool calling, which thinking mode with Claude 3.7 does not support
+        # So, we use bind_tools without enforcing tool calling to generate the report sections
+        report_sections = planner_llm.bind_tools([Sections]).invoke([SystemMessage(content=system_instructions_sections),
+                                                                     HumanMessage(content=planner_message)])
         tool_call = report_sections.tool_calls[0]['args']
         report_sections = Sections.model_validate(tool_call)
+
     else:
+
+        # With other models, we can use with_structured_output
         planner_llm = init_chat_model(model=planner_model, model_provider=planner_provider)
         structured_llm = planner_llm.with_structured_output(Sections)
-        report_sections = structured_llm.invoke([SystemMessage(content=system_instructions_sections)]+[HumanMessage(content="Generate the sections of the report. Your response must include a 'sections' field containing a list of sections. Each section must have: name, description, plan, research, and content fields.")])
+        report_sections = structured_llm.invoke([SystemMessage(content=system_instructions_sections),
+                                                 HumanMessage(content=planner_message)])
 
     # Get sections
     sections = report_sections.sections
@@ -114,12 +122,14 @@ def human_feedback(state: ReportState, config: RunnableConfig) -> Command[Litera
     )
 
     # Get feedback on the report plan from interrupt
-
-    feedback = interrupt(f"Please provide feedback on the following report plan. \n\n{sections_str}\n\n Does the report plan meet your needs? Pass 'true' to approve the report plan or provide feedback to regenerate the report plan:")
+    interrupt_message = f"""Please provide feedback on the following report plan. 
+                        \n\n{sections_str}\n\n
+                        \nDoes the report plan meet your needs? Pass 'true' to approve the report plan or provide feedback to regenerate the report plan:"""
+    
+    feedback = interrupt(interrupt_message)
 
     # If the user approves the report plan, kick off section writing
-    # if isinstance(feedback, bool) and feedback is True:
-    if isinstance(feedback, bool):
+    if isinstance(feedback, bool) and feedback is True:
         # Treat this as approve and kick off section writing
         return Command(goto=[
             Send("build_section_with_web_research", {"topic": topic, "section": s, "search_iterations": 0}) 
@@ -129,7 +139,7 @@ def human_feedback(state: ReportState, config: RunnableConfig) -> Command[Litera
     
     # If the user provides feedback, regenerate the report plan 
     elif isinstance(feedback, str):
-        # treat this as feedback
+        # Treat this as feedback
         return Command(goto="generate_report_plan", 
                        update={"feedback_on_report_plan": feedback})
     else:
@@ -153,10 +163,13 @@ def generate_queries(state: SectionState, config: RunnableConfig):
     structured_llm = writer_model.with_structured_output(Queries)
 
     # Format system instructions
-    system_instructions = query_writer_instructions.format(topic=topic, section_topic=section.description, number_of_queries=number_of_queries)
+    system_instructions = query_writer_instructions.format(topic=topic, 
+                                                           section_topic=section.description, 
+                                                           number_of_queries=number_of_queries)
 
     # Generate queries  
-    queries = structured_llm.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate search queries on the provided topic.")])
+    queries = structured_llm.invoke([SystemMessage(content=system_instructions),
+                                     HumanMessage(content="Generate search queries on the provided topic.")])
 
     return {"search_queries": queries.queries}
 
@@ -207,32 +220,67 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
     configurable = Configuration.from_runnable_config(config)
 
     # Format system instructions
-    system_instructions = section_writer_instructions.format(topic=topic, section_title=section.name, section_topic=section.description, context=source_str, section_content=section.content)
+    system_instructions = section_writer_instructions.format(topic=topic, 
+                                                             section_name=section.name, 
+                                                             section_topic=section.description, 
+                                                             context=source_str, 
+                                                             section_content=section.content)
 
     # Generate section  
     writer_provider = get_config_value(configurable.writer_provider)
     writer_model_name = get_config_value(configurable.writer_model)
     writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider, temperature=0) 
-    section_content = writer_model.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate a report section based on the provided sources.")])
+    section_content = writer_model.invoke([SystemMessage(content=system_instructions),
+                                           HumanMessage(content="Generate a report section based on the provided sources.")])
     
     # Write content to the section object  
     section.content = section_content.content
 
     # Grade prompt 
-    section_grader_instructions_formatted = section_grader_instructions.format(topic=topic, section_topic=section.description,section=section.content)
+    section_grader_message = """Grade the report and consider follow-up questions for missing information.
+                               If the grade is 'pass', return empty strings for all follow-up queries.
+                               If the grade is 'fail', provide specific search queries to gather missing information."""
+    
+    section_grader_instructions_formatted = section_grader_instructions.format(topic=topic, 
+                                                                               section_topic=section.description,
+                                                                               section=section.content, 
+                                                                               number_of_follow_up_queries=configurable.number_of_queries)
 
-    # Feedback 
-    structured_llm = writer_model.with_structured_output(Feedback)
-    feedback = structured_llm.invoke([SystemMessage(content=section_grader_instructions_formatted)]+[HumanMessage(content="Grade the report and consider follow-up questions for missing information:")])
+    # Use planner model for reflection
+    planner_provider = get_config_value(configurable.planner_provider)
+    planner_model = get_config_value(configurable.planner_model)
 
+    # If the planner model is claude-3-7-sonnet-latest, we need to use bind_tools to use thinking when generating the feedback 
+    if planner_model == "claude-3-7-sonnet-latest":
+        # Allocate a thinking budget for claude-3-7-sonnet-latest as the planner model
+        reflection_model = init_chat_model(model=planner_model, 
+                                           model_provider=planner_provider, 
+                                           max_tokens=20_000, 
+                                           thinking={"type": "enabled", "budget_tokens": 16_000})
+        
+        # with_structured_output uses forced tool calling, which thinking mode with Claude 3.7 does not support
+        # So, we use bind_tools without enforcing tool calling to generate the report sections
+        reflection_result = reflection_model.bind_tools([Feedback]).invoke([SystemMessage(content=section_grader_instructions_formatted),
+                                                                            HumanMessage(content=section_grader_message)])
+        tool_call = reflection_result.tool_calls[0]['args']
+        feedback = Feedback.model_validate(tool_call)
+    
+    else:
+        reflection_model = init_chat_model(model=planner_model, 
+                                           model_provider=planner_provider).with_structured_output(Feedback)
+        
+        feedback = reflection_model.invoke([SystemMessage(content=section_grader_instructions_formatted),
+                                            HumanMessage(content=section_grader_message)])
+
+    # If the section is passing or the max search depth is reached, publish the section to completed sections 
     if feedback.grade == "pass" or state["search_iterations"] >= configurable.max_search_depth:
         # Publish the section to completed sections 
         return  Command(
         update={"completed_sections": [section]},
         goto=END
     )
+    # Update the existing section with new content and update search queries
     else:
-        # Update the existing section with new content and update search queries
         return  Command(
         update={"search_queries": feedback.follow_up_queries, "section": section},
         goto="search_web"
@@ -250,13 +298,14 @@ def write_final_sections(state: SectionState, config: RunnableConfig):
     completed_report_sections = state["report_sections_from_research"]
     
     # Format system instructions
-    system_instructions = final_section_writer_instructions.format(topic=topic, section_title=section.name, section_topic=section.description, context=completed_report_sections)
+    system_instructions = final_section_writer_instructions.format(topic=topic, section_name=section.name, section_topic=section.description, context=completed_report_sections)
 
     # Generate section  
     writer_provider = get_config_value(configurable.writer_provider)
     writer_model_name = get_config_value(configurable.writer_model)
     writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider, temperature=0) 
-    section_content = writer_model.invoke([SystemMessage(content=system_instructions)]+[HumanMessage(content="Generate a report section based on the provided sources.")])
+    section_content = writer_model.invoke([SystemMessage(content=system_instructions),
+                                           HumanMessage(content="Generate a report section based on the provided sources.")])
     
     # Write content to section 
     section.content = section_content.content
