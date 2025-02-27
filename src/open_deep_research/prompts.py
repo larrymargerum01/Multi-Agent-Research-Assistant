@@ -1,5 +1,5 @@
 # Prompt to generate search queries to help with planning the report
-report_planner_query_writer_instructions="""You are an expert technical writer, helping to plan a report. 
+report_planner_query_writer_instructions="""You are performing research for a report. 
 
 <Report topic>
 {topic}
@@ -10,11 +10,11 @@ report_planner_query_writer_instructions="""You are an expert technical writer, 
 </Report organization>
 
 <Task>
-Your goal is to generate {number_of_queries} search queries that will help gather comprehensive information for planning the report sections. 
+Your goal is to generate {number_of_queries} web search queries that will help gather information for planning the report sections. 
 
 The queries should:
 
-1. Be related to the topic of the report
+1. Be related to the Report topic
 2. Help satisfy the requirements specified in the report organization
 
 Make the queries specific enough to find high-quality, relevant sources while covering the breadth needed for the report structure.
@@ -22,25 +22,12 @@ Make the queries specific enough to find high-quality, relevant sources while co
 """
 
 # Prompt to generate the report plan
-report_planner_instructions="""I want a plan for a report. 
+report_planner_instructions="""I want a plan for a report that is concise and focused.
 
-<Task>
-Generate a list of sections for the report.
-
-Each section should have the fields:
-
-- Name - Name for this section of the report.
-- Description - Brief overview of the main topics covered in this section.
-- Research - Whether to perform web research for this section of the report.
-- Content - The content of the section, which you will leave blank for now.
-
-For example, introduction and conclusion will not require research because they will distill information from other parts of the report.
-</Task>
-
-<Topic>
+<Report topic>
 The topic of the report is:
 {topic}
-</Topic>
+</Report topic>
 
 <Report organization>
 The report should follow this organization: 
@@ -51,6 +38,31 @@ The report should follow this organization:
 Here is context to use to plan the sections of the report: 
 {context}
 </Context>
+
+<Task>
+Generate a list of sections for the report. Your plan should be tight and focused with NO overlapping sections or unnecessary filler. 
+
+For example, a good report structure might look like:
+1/ intro
+2/ overview of topic A
+3/ overview of topic B
+4/ comparison between A and B
+5/ conclusion
+
+Each section should have the fields:
+
+- Name - Name for this section of the report.
+- Description - Brief overview of the main topics covered in this section.
+- Research - Whether to perform web research for this section of the report.
+- Content - The content of the section, which you will leave blank for now.
+
+Integration guidelines:
+- Include examples and implementation details within main topic sections, not as separate sections
+- Ensure each section has a distinct purpose with no content overlap
+- Combine related concepts rather than separating them
+
+Before submitting, review your structure to ensure it has no redundant sections and follows a logical flow.
+</Task>
 
 <Feedback>
 Here is feedback on the report structure from review (if any):
@@ -88,6 +100,10 @@ section_writer_instructions = """You are an expert technical writer crafting one
 {topic}
 </Report topic>
 
+<Section name>
+{section_name}
+</Section name>
+
 <Section topic>
 {section_topic}
 </Section topic>
@@ -102,7 +118,7 @@ section_writer_instructions = """You are an expert technical writer crafting one
 
 <Guidelines for writing>
 1. If the existing section content is not populated, write a new section from scratch.
-2. If the existing section content is populated, write a new section that synthesizes the existing section content with the new information.
+2. If the existing section content is populated, write a new section that synthesizes the existing section content with the Source material.
 </Guidelines for writing>
 
 <Length and style>
@@ -150,9 +166,9 @@ section_grader_instructions = """Review a report section relative to the specifi
 </section content>
 
 <task>
-Evaluate whether the section adequately covers the topic by checking technical accuracy and depth.
+Evaluate whether the section content adequately addresses the section topic.
 
-If the section fails any criteria, generate specific follow-up search queries to gather missing information.
+If the section content does not adequately address the section topic, generate {number_of_follow_up_queries} follow-up search queries to gather missing information.
 </task>
 
 <format>
@@ -170,6 +186,10 @@ final_section_writer_instructions="""You are an expert technical writer crafting
 <Report topic>
 {topic}
 </Report topic>
+
+<Section name>
+{section_name}
+</Section name>
 
 <Section topic> 
 {section_topic}
