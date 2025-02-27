@@ -1,7 +1,7 @@
 import os
 from enum import Enum
 from dataclasses import dataclass, fields
-from typing import Any, Optional
+from typing import Any, Optional, Dict 
 
 from langchain_core.runnables import RunnableConfig
 from dataclasses import dataclass
@@ -21,6 +21,9 @@ DEFAULT_REPORT_STRUCTURE = """Use this structure to create a report on the user-
 class SearchAPI(Enum):
     PERPLEXITY = "perplexity"
     TAVILY = "tavily"
+    EXA = "exa"
+    ARXIV = "arxiv"
+    PUBMED = "pubmed"
 
 class PlannerProvider(Enum):
     ANTHROPIC = "anthropic"
@@ -43,6 +46,7 @@ class Configuration:
     writer_provider: WriterProvider = WriterProvider.ANTHROPIC # Defaults to Anthropic as provider
     writer_model: str = "claude-3-5-sonnet-latest" # Defaults to claude-3-5-sonnet-latest
     search_api: SearchAPI = SearchAPI.TAVILY # Default to TAVILY
+    search_api_config: Optional[Dict[str, Any]] = None 
 
     @classmethod
     def from_runnable_config(

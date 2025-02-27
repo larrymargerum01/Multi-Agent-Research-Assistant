@@ -11,7 +11,7 @@ from langgraph.types import interrupt, Command
 from open_deep_research.state import ReportStateInput, ReportStateOutput, Sections, ReportState, SectionState, SectionOutputState, Queries, Feedback
 from open_deep_research.prompts import report_planner_query_writer_instructions, report_planner_instructions, query_writer_instructions, section_writer_instructions, final_section_writer_instructions, section_grader_instructions
 from open_deep_research.configuration import Configuration
-from open_deep_research.utils import tavily_search_async, deduplicate_and_format_sources, format_sections, perplexity_search, get_config_value
+from open_deep_research.utils import tavily_search_async, exa_search, arxiv_search_async, pubmed_search_async, deduplicate_and_format_sources, format_sections, perplexity_search, get_config_value, get_search_params
 
 # Nodes
 async def generate_report_plan(state: ReportState, config: RunnableConfig):
@@ -25,6 +25,9 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
     configurable = Configuration.from_runnable_config(config)
     report_structure = configurable.report_structure
     number_of_queries = configurable.number_of_queries
+    search_api = get_config_value(configurable.search_api)
+    search_api_config = configurable.search_api_config or {}  # Get the config dict, default to empty
+    params_to_pass = get_search_params(search_api, search_api_config)  # Filter parameters
 
     # Convert JSON object to string if necessary
     if isinstance(report_structure, dict):
@@ -46,18 +49,24 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
     # Web search
     query_list = [query.search_query for query in results.queries]
 
-    # Get the search API
-    search_api = get_config_value(configurable.search_api)
-
-    # Search the web
+    # Search the web with parameters
     if search_api == "tavily":
-        search_results = await tavily_search_async(query_list)
+        search_results = await tavily_search_async(query_list, **params_to_pass)
         source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
     elif search_api == "perplexity":
-        search_results = perplexity_search(query_list)
+        search_results = perplexity_search(query_list, **params_to_pass)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    elif search_api == "exa":
+        search_results = await exa_search(query_list, **params_to_pass)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    elif search_api == "arxiv":
+        search_results = await arxiv_search_async(query_list, **params_to_pass)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    elif search_api == "pubmed":
+        search_results = await pubmed_search_async(query_list, **params_to_pass)
         source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
     else:
-        raise ValueError(f"Unsupported search API: {configurable.search_api}")
+        raise ValueError(f"Unsupported search API: {search_api}")
 
     # Format system instructions
     system_instructions_sections = report_planner_instructions.format(topic=topic, report_organization=report_structure, context=source_str, feedback=feedback)
@@ -166,28 +175,36 @@ def generate_queries(state: SectionState, config: RunnableConfig):
 
 async def search_web(state: SectionState, config: RunnableConfig):
     """ Search the web for each query, then return a list of raw sources and a formatted string of sources."""
-    
-    # Get state 
+    # Get state
     search_queries = state["search_queries"]
 
     # Get configuration
     configurable = Configuration.from_runnable_config(config)
+    search_api = get_config_value(configurable.search_api)
+    search_api_config = configurable.search_api_config or {}  # Get the config dict, default to empty
+    params_to_pass = get_search_params(search_api, search_api_config)  # Filter parameters
 
     # Web search
     query_list = [query.search_query for query in search_queries]
-    
-    # Get the search API
-    search_api = get_config_value(configurable.search_api)
 
-    # Search the web
+    # Search the web with parameters
     if search_api == "tavily":
-        search_results = await tavily_search_async(query_list)
+        search_results = await tavily_search_async(query_list, **params_to_pass)
         source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=5000, include_raw_content=True)
     elif search_api == "perplexity":
-        search_results = perplexity_search(query_list)
+        search_results = perplexity_search(query_list, **params_to_pass)
         source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=5000, include_raw_content=False)
+    elif search_api == "exa":
+        search_results = await exa_search(query_list, **params_to_pass)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    elif search_api == "arxiv":
+        search_results = await arxiv_search_async(query_list, **params_to_pass)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
+    elif search_api == "pubmed":
+        search_results = await pubmed_search_async(query_list, **params_to_pass)
+        source_str = deduplicate_and_format_sources(search_results, max_tokens_per_source=1000, include_raw_content=False)
     else:
-        raise ValueError(f"Unsupported search API: {configurable.search_api}")
+        raise ValueError(f"Unsupported search API: {search_api}")
 
     return {"source_str": source_str, "search_iterations": state["search_iterations"] + 1}
 
