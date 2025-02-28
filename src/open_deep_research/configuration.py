@@ -24,6 +24,7 @@ class SearchAPI(Enum):
     EXA = "exa"
     ARXIV = "arxiv"
     PUBMED = "pubmed"
+    LINKUP = "linkup"
 
 class PlannerProvider(Enum):
     ANTHROPIC = "anthropic"

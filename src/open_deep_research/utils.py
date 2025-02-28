@@ -1,18 +1,15 @@
-
 import os
 import asyncio
 import requests
 
-from tavily import TavilyClient, AsyncTavilyClient
+from tavily import AsyncTavilyClient
 from langchain_community.retrievers import ArxivRetriever
 from langchain_community.utilities.pubmed import PubMedAPIWrapper
 from exa_py import Exa
+from linkup import LinkupClient
 from typing import List, Optional, Dict, Any
 from open_deep_research.state import Section
 from langsmith import traceable
-
-tavily_client = TavilyClient()
-tavily_async_client = AsyncTavilyClient()
 
 
 def get_config_value(value):
@@ -40,6 +37,7 @@ def get_search_params(search_api: str, search_api_config: Optional[Dict[str, Any
         "perplexity": [],  # Perplexity accepts no additional parameters
         "arxiv": ["load_max_docs", "get_full_documents", "load_all_available_meta"],
         "pubmed": ["top_k_results", "email", "api_key", "doc_content_chars_max"],
+        "linkup": ["depth"],
     }
 
     # Get the list of accepted parameters for the given search API
@@ -146,7 +144,7 @@ async def tavily_search_async(search_queries):
                     ]
                 }
     """
-    
+    tavily_async_client = AsyncTavilyClient()
     search_tasks = []
     for query in search_queries:
             search_tasks.append(
@@ -765,3 +763,49 @@ async def pubmed_search_async(search_queries, top_k_results=5, email=None, api_k
             delay = min(5.0, delay * 1.5)  # Don't exceed 5 seconds
     
     return search_docs
+
+@traceable
+async def linkup_search(search_queries, depth: Optional[str] = "standard"):
+    """
+    Performs concurrent web searches using the Linkup API.
+
+    Args:
+        search_queries (List[SearchQuery]): List of search queries to process
+        depth (str, optional): "standard" (default)  or "deep". More details here https://docs.linkup.so/pages/documentation/get-started/concepts
+
+    Returns:
+        List[dict]: List of search responses from Linkup API, one per query. Each response has format:
+            {
+                'results': [            # List of search results
+                    {
+                        'title': str,   # Title of the search result
+                        'url': str,     # URL of the result
+                        'content': str, # Summary/snippet of content
+                    },
+                    ...
+                ]
+            }
+    """
+    client = LinkupClient()
+    search_tasks = []
+    for query in search_queries:
+        search_tasks.append(
+                client.async_search(
+                    query,
+                    depth,
+                    output_type="searchResults",
+                )
+            )
+
+    search_results = []
+    for response in await asyncio.gather(*search_tasks):
+        search_results.append(
+            {
+                "results": [
+                    {"title": result.name, "url": result.url, "content": result.content}
+                    for result in response.results
+                ],
+            }
+        )
+
+    return search_results
