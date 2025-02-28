@@ -243,8 +243,8 @@ groq.APIError: Failed to call a function. Please adjust your prompt. See 'failed
 
 ### Local deployment
 
-Follow the [quickstart](#quickstart) to start LangGraph server locally.
+Follow the [quickstart](#-quickstart) to start LangGraph server locally.
 
 ### Hosted deployment
  
-You can easily deploy to [LangGraph Platform ](https://langchain-ai.github.io/langgraph/concepts/#deployment-options). 
+You can easily deploy to [LangGraph Platform](https://langchain-ai.github.io/langgraph/concepts/#deployment-options). 
