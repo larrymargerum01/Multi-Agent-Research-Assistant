@@ -38,13 +38,13 @@ Select a planner model (by default Open Deep Research uses Claude 3.7 Sonnet wit
 ### Using the package
 
 (Recommended: Create a virtual environment):
-```
+```bash
 python -m venv open_deep_research
 source open_deep_research/bin/activate
 ```
 
 Install:
-```
+```bash
 pip install open-deep-research
 ```
 
@@ -97,7 +97,7 @@ async for event in graph.astream(Command(resume="Include a revenue estimate (ARR
 ```
 
 When you are satisfied with the report plan, you can pass `True` to proceed to report generation:
-```
+```python
 # Pass True to approve the report plan and proceed to report generation
 async for event in graph.astream(Command(resume=True), thread, stream_mode="updates"):
     print(event)
