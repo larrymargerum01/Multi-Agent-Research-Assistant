@@ -192,7 +192,9 @@ You can customize the research assistant's behavior through several parameters:
 - `max_search_depth`: Maximum number of reflection and search iterations (default: 2)
 - `planner_provider`: Model provider for planning phase (default: "openai", but can be "groq")
 - `planner_model`: Specific model for planning (default: "o3-mini", but can be any Groq hosted model such as "deepseek-r1-distill-llama-70b")
+- `planner_chat_model`: Chat model for planning. This setting overrides planner_model (default: None. example: `ChatOpenAI(model_name="gpt-4o")`)
 - `writer_model`: Model for writing the report (default: "claude-3-5-sonnet-latest")
+- `writer_chat_model`: Chat model for writing the report. This setting overrides writer_model (default: None. example: `ChatAnthropic(model_name="claude-3-5-sonnet-latest")`)
 - `search_api`: API to use for web searches (default: "tavily", options include "perplexity", "exa", "arxiv", "pubmed", "linkup")
 
 These configurations allow you to fine-tune the research process based on your needs, from adjusting the depth of research to selecting specific AI models for different phases of report generation.
