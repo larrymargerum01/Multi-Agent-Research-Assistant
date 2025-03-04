@@ -1,16 +1,17 @@
 import os
 import asyncio
 import requests
+from typing import List, Optional, Dict, Any
 
-from tavily import AsyncTavilyClient
-from langchain_community.retrievers import ArxivRetriever
-from langchain_community.utilities.pubmed import PubMedAPIWrapper
 from exa_py import Exa
 from linkup import LinkupClient
-from typing import List, Optional, Dict, Any
-from open_deep_research.state import Section
+from tavily import AsyncTavilyClient
+
+from langchain_community.retrievers import ArxivRetriever
+from langchain_community.utilities.pubmed import PubMedAPIWrapper
 from langsmith import traceable
 
+from open_deep_research.state import Section
 
 def get_config_value(value):
     """
@@ -18,7 +19,6 @@ def get_config_value(value):
     """
     return value if isinstance(value, str) else value.value
 
-# Helper function to get search parameters based on the search API and config
 def get_search_params(search_api: str, search_api_config: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Filters the search_api_config dictionary to include only parameters accepted by the specified search API.
@@ -53,7 +53,7 @@ def get_search_params(search_api: str, search_api_config: Optional[Dict[str, Any
 def deduplicate_and_format_sources(search_response, max_tokens_per_source, include_raw_content=True):
     """
     Takes a list of search responses and formats them into a readable string.
-    Limits the raw_content to approximately max_tokens_per_source.
+    Limits the raw_content to approximately max_tokens_per_source tokens.
  
     Args:
         search_responses: List of search response dicts, each containing:
@@ -79,9 +79,11 @@ def deduplicate_and_format_sources(search_response, max_tokens_per_source, inclu
     unique_sources = {source['url']: source for source in sources_list}
 
     # Format output
-    formatted_text = "Sources:\n\n"
+    formatted_text = "Content from sources:\n"
     for i, source in enumerate(unique_sources.values(), 1):
-        formatted_text += f"Source {source['title']}:\n===\n"
+        formatted_text += f"{'='*80}\n"  # Clear section separator
+        formatted_text += f"Source: {source['title']}\n"
+        formatted_text += f"{'-'*80}\n"  # Subsection separator
         formatted_text += f"URL: {source['url']}\n===\n"
         formatted_text += f"Most relevant content from source: {source['content']}\n===\n"
         if include_raw_content:
@@ -95,6 +97,7 @@ def deduplicate_and_format_sources(search_response, max_tokens_per_source, inclu
             if len(raw_content) > char_limit:
                 raw_content = raw_content[:char_limit] + "... [truncated]"
             formatted_text += f"Full source content limited to {max_tokens_per_source} tokens: {raw_content}\n\n"
+        formatted_text += f"{'='*80}\n\n" # End section separator
                 
     return formatted_text.strip()
 
@@ -809,3 +812,38 @@ async def linkup_search(search_queries, depth: Optional[str] = "standard"):
         )
 
     return search_results
+
+async def select_and_execute_search(search_api: str, query_list: list[str], params_to_pass: dict) -> str:
+    """Select and execute the appropriate search API.
+    
+    Args:
+        search_api: Name of the search API to use
+        query_list: List of search queries to execute
+        params_to_pass: Parameters to pass to the search API
+        
+    Returns:
+        Formatted string containing search results
+        
+    Raises:
+        ValueError: If an unsupported search API is specified
+    """
+    if search_api == "tavily":
+        search_results = await tavily_search_async(query_list, **params_to_pass)
+        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000, include_raw_content=False)
+    elif search_api == "perplexity":
+        search_results = perplexity_search(query_list, **params_to_pass)
+        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
+    elif search_api == "exa":
+        search_results = await exa_search(query_list, **params_to_pass)
+        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
+    elif search_api == "arxiv":
+        search_results = await arxiv_search_async(query_list, **params_to_pass)
+        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
+    elif search_api == "pubmed":
+        search_results = await pubmed_search_async(query_list, **params_to_pass)
+        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
+    elif search_api == "linkup":
+        search_results = await linkup_search(query_list, **params_to_pass)
+        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
+    else:
+        raise ValueError(f"Unsupported search API: {search_api}")
