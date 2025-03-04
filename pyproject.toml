@@ -1,6 +1,6 @@
 [project]
 name = "open_deep_research"
-version = "0.0.6"
+version = "0.0.7"
 description = "Planning, research, and report generation."
 authors = [
     { name = "Lance Martin" }
@@ -12,7 +12,7 @@ dependencies = [
     "langgraph>=0.2.55",
     "langchain-community>=0.3.9",
     "langchain-openai>=0.3.7",
-    "langchain-anthropic>=0.3.8",
+    "langchain-anthropic>=0.3.9",
     "openai>=1.61.0",
     "tavily-python>=0.5.0",
     "langchain-groq>=0.2.4",
