@@ -221,3 +221,55 @@ def perplexity_search(search_queries):
         })
     
     return search_docs
+@traceable
+def duckduckgo_search(search_queries):
+    """Search the web using DuckDuckGo API.
+    
+    Args:
+        search_queries (List[SearchQuery]): List of search queries to process
+    
+    Returns:
+        List[dict]: List of search responses in the same format as other search APIs
+    """
+    logger = logging.getLogger(__name__)
+    search_docs = []
+    
+    with DDGS() as ddgs:
+        for query in search_queries:
+            logger.info(f"Searching DuckDuckGo for query: {query}")
+            results = []
+            try:
+                search_results = list(ddgs.text(query, max_results=5))
+                logger.info(f"Got {len(search_results)} results for query: {query}")
+                logger.debug(f"Raw search results: {search_results}")
+                
+                for r in search_results:
+                    try:
+                        logger.debug(f"Processing result: {r}")
+                        result = {
+                            "title": r.get("title", "No title"),
+                            "url": r.get("link", r.get("url", "No URL")),
+                            "content": r.get("body", r.get("snippet", "No content")),
+                            "raw_content": r.get("body", r.get("snippet", "No content")),
+                            "score": 1.0
+                        }
+                        results.append(result)
+                    except Exception as e:
+                        logger.error(f"Error processing search result: {e}")
+                        logger.error(f"Problematic result object: {r}")
+                        continue
+                    
+            except Exception as e:
+                logger.error(f"Error during DuckDuckGo search: {e}")
+                continue
+                
+            search_docs.append({
+                "query": query,
+                "follow_up_questions": None,
+                "answer": None,
+                "images": [],
+                "results": results
+            })
+    
+    logger.info(f"Completed DuckDuckGo search with {len(search_docs)} total results")
+    return search_docs

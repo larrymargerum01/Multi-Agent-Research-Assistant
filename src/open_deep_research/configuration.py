@@ -21,6 +21,7 @@ DEFAULT_REPORT_STRUCTURE = """Use this structure to create a report on the user-
 class SearchAPI(Enum):
     PERPLEXITY = "perplexity"
     TAVILY = "tavily"
+    DUCKDUCKGO = "duckduckgo"
 
 class PlannerProvider(Enum):
     ANTHROPIC = "anthropic"

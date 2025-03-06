@@ -19,6 +19,8 @@ Select a web search tool (by default Open Deep Research uses Tavily):
 
 * [Tavily API](https://tavily.com/)
 * [Perplexity API](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api)
+* [duckduckgo API](https://duckduckgo.com/)
+
 
 Select a writer model (by default Open Deep Research uses Anthropic Claude 3.5 Sonnet):
 
