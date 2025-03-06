@@ -1,5 +1,4 @@
-# Prompt to generate search queries to help with planning the report
-report_planner_query_writer_instructions="""You are an expert technical writer, helping to plan a report. 
+report_planner_query_writer_instructions="""You are performing research for a report. 
 
 <Report topic>
 {topic}
@@ -10,37 +9,23 @@ report_planner_query_writer_instructions="""You are an expert technical writer, 
 </Report organization>
 
 <Task>
-Your goal is to generate {number_of_queries} search queries that will help gather comprehensive information for planning the report sections. 
+Your goal is to generate {number_of_queries} web search queries that will help gather information for planning the report sections. 
 
 The queries should:
 
-1. Be related to the topic of the report
+1. Be related to the Report topic
 2. Help satisfy the requirements specified in the report organization
 
 Make the queries specific enough to find high-quality, relevant sources while covering the breadth needed for the report structure.
 </Task>
 """
 
-# Prompt to generate the report plan
-report_planner_instructions="""I want a plan for a report. 
+report_planner_instructions="""I want a plan for a report that is concise and focused.
 
-<Task>
-Generate a list of sections for the report.
-
-Each section should have the fields:
-
-- Name - Name for this section of the report.
-- Description - Brief overview of the main topics covered in this section.
-- Research - Whether to perform web research for this section of the report.
-- Content - The content of the section, which you will leave blank for now.
-
-For example, introduction and conclusion will not require research because they will distill information from other parts of the report.
-</Task>
-
-<Topic>
+<Report topic>
 The topic of the report is:
 {topic}
-</Topic>
+</Report topic>
 
 <Report organization>
 The report should follow this organization: 
@@ -52,13 +37,37 @@ Here is context to use to plan the sections of the report:
 {context}
 </Context>
 
+<Task>
+Generate a list of sections for the report. Your plan should be tight and focused with NO overlapping sections or unnecessary filler. 
+
+For example, a good report structure might look like:
+1/ intro
+2/ overview of topic A
+3/ overview of topic B
+4/ comparison between A and B
+5/ conclusion
+
+Each section should have the fields:
+
+- Name - Name for this section of the report.
+- Description - Brief overview of the main topics covered in this section.
+- Research - Whether to perform web research for this section of the report.
+- Content - The content of the section, which you will leave blank for now.
+
+Integration guidelines:
+- Include examples and implementation details within main topic sections, not as separate sections
+- Ensure each section has a distinct purpose with no content overlap
+- Combine related concepts rather than separating them
+
+Before submitting, review your structure to ensure it has no redundant sections and follows a logical flow.
+</Task>
+
 <Feedback>
 Here is feedback on the report structure from review (if any):
 {feedback}
 </Feedback>
 """
 
-# Query writer instructions
 query_writer_instructions="""You are an expert technical writer crafting targeted web search queries that will gather comprehensive information for writing a technical report section.
 
 <Report topic>
@@ -81,12 +90,49 @@ Make the queries specific enough to find high-quality, relevant sources.
 </Task>
 """
 
-# Section writer instructions
-section_writer_instructions = """You are an expert technical writer crafting one section of a technical report.
+section_writer_instructions = """Write one section of a research report.
 
+<Task>
+1. Review the report topic, section name, and section topic carefully.
+2. If present, review any existing section content. 
+3. Then, look at the provided Source material.
+4. Decide the sources that you will use it to write a report section.
+5. Write the report section and list your sources. 
+</Task>
+
+<Writing Guidelines>
+- If existing section content is not populated, write from scratch
+- If existing section content is populated, synthesize it with the source material
+- Strict 150-200 word limit
+- Use simple, clear language
+- Use short paragraphs (2-3 sentences max)
+- Use ## for section title (Markdown format)
+</Writing Guidelines>
+
+<Citation Rules>
+- Assign each unique URL a single citation number in your text
+- End with ### Sources that lists each source with corresponding numbers
+- IMPORTANT: Number sources sequentially without gaps (1,2,3,4...) in the final list regardless of which sources you choose
+- Example format:
+  [1] Source Title: URL
+  [2] Source Title: URL
+</Citation Rules>
+
+<Final Check>
+1. Verify that EVERY claim is grounded in the provided Source material
+2. Confirm each URL appears ONLY ONCE in the Source list
+3. Verify that sources are numbered sequentially (1,2,3...) without any gaps
+</Final Check>
+"""
+
+section_writer_inputs=""" 
 <Report topic>
 {topic}
 </Report topic>
+
+<Section name>
+{section_name}
+</Section name>
 
 <Section topic>
 {section_topic}
@@ -99,42 +145,8 @@ section_writer_instructions = """You are an expert technical writer crafting one
 <Source material>
 {context}
 </Source material>
-
-<Guidelines for writing>
-1. If the existing section content is not populated, write a new section from scratch.
-2. If the existing section content is populated, write a new section that synthesizes the existing section content with the new information.
-</Guidelines for writing>
-
-<Length and style>
-- Strict 150-200 word limit
-- No marketing language
-- Technical focus
-- Write in simple, clear language
-- Start with your most important insight in **bold**
-- Use short paragraphs (2-3 sentences max)
-- Use ## for section title (Markdown format)
-- Only use ONE structural element IF it helps clarify your point:
-  * Either a focused table comparing 2-3 key items (using Markdown table syntax)
-  * Or a short list (3-5 items) using proper Markdown list syntax:
-    - Use `*` or `-` for unordered lists
-    - Use `1.` for ordered lists
-    - Ensure proper indentation and spacing
-- End with ### Sources that references the below source material formatted as:
-  * List each source with title, date, and URL
-  * Format: `- Title : URL`
-</Length and style>
-
-<Quality checks>
-- Exactly 150-200 words (excluding title and sources)
-- Careful use of only ONE structural element (table or list) and only if it helps clarify your point
-- One specific example / case study
-- Starts with bold insight
-- No preamble prior to creating the section content
-- Sources cited at end
-</Quality checks>
 """
 
-# Instructions for section grading
 section_grader_instructions = """Review a report section relative to the specified topic:
 
 <Report topic>
@@ -150,9 +162,9 @@ section_grader_instructions = """Review a report section relative to the specifi
 </section content>
 
 <task>
-Evaluate whether the section adequately covers the topic by checking technical accuracy and depth.
+Evaluate whether the section content adequately addresses the section topic.
 
-If the section fails any criteria, generate specific follow-up search queries to gather missing information.
+If the section content does not adequately address the section topic, generate {number_of_follow_up_queries} follow-up search queries to gather missing information.
 </task>
 
 <format>
@@ -170,6 +182,10 @@ final_section_writer_instructions="""You are an expert technical writer crafting
 <Report topic>
 {topic}
 </Report topic>
+
+<Section name>
+{section_name}
+</Section name>
 
 <Section topic> 
 {section_topic}
