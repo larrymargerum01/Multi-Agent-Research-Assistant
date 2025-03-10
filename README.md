@@ -23,6 +23,7 @@ Select a web search tool (by default Open Deep Research uses Tavily):
 * [ArXiv](https://arxiv.org/) - Academic papers in physics, mathematics, computer science, and more
 * [PubMed](https://pubmed.ncbi.nlm.nih.gov/) - Biomedical literature from MEDLINE, life science journals, and online books
 * [Linkup API](https://www.linkup.so/) - General web search
+* [duckduckgo API](https://duckduckgo.com/)
 
 Select a writer model (by default Open Deep Research uses Anthropic Claude 3.5 Sonnet):
 

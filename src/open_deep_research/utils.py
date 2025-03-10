@@ -12,6 +12,8 @@ from langchain_community.utilities.pubmed import PubMedAPIWrapper
 from langsmith import traceable
 
 from open_deep_research.state import Section
+from duckduckgo_search import DDGS 
+import logging
 
 def get_config_value(value):
     """
@@ -812,7 +814,49 @@ async def linkup_search(search_queries, depth: Optional[str] = "standard"):
         )
 
     return search_results
+@traceable
+async def duckduckgo_search(search_queries):
+    """Perform searches using DuckDuckGo
+    
+    Args:
+        search_queries (List[str]): List of search queries to process
+        
+    Returns:
+        List[dict]: List of search results
+    """
+    async def process_single_query(query):
+        # Execute synchronous search in the event loop's thread pool
+        loop = asyncio.get_event_loop()
+        
+        def perform_search():
+            results = []
+            with DDGS() as ddgs:
+                ddg_results = list(ddgs.text(query, max_results=5))
+                
+                # Format results
+                for i, result in enumerate(ddg_results):
+                    results.append({
+                        'title': result.get('title', ''),
+                        'url': result.get('link', ''),
+                        'content': result.get('body', ''),
+                        'score': 1.0 - (i * 0.1),  # Simple scoring mechanism
+                        'raw_content': result.get('body', '')
+                    })
+            return {
+                'query': query,
+                'follow_up_questions': None,
+                'answer': None,
+                'images': [],
+                'results': results
+            }
+            
+        return await loop.run_in_executor(None, perform_search)
 
+    # Execute all queries concurrently
+    tasks = [process_single_query(query) for query in search_queries]
+    search_docs = await asyncio.gather(*tasks)
+    
+    return search_docs
 async def select_and_execute_search(search_api: str, query_list: list[str], params_to_pass: dict) -> str:
     """Select and execute the appropriate search API.
     
@@ -844,6 +888,9 @@ async def select_and_execute_search(search_api: str, query_list: list[str], para
         return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     elif search_api == "linkup":
         search_results = await linkup_search(query_list, **params_to_pass)
+        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
+    elif search_api == "duckduckgo":
+        search_results = await duckduckgo_search(query_list)
         return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     else:
         raise ValueError(f"Unsupported search API: {search_api}")

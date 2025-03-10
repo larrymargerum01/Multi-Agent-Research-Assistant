@@ -25,6 +25,7 @@ class SearchAPI(Enum):
     ARXIV = "arxiv"
     PUBMED = "pubmed"
     LINKUP = "linkup"
+    DUCKDUCKGO = "duckduckgo"
 
 class PlannerProvider(Enum):
     ANTHROPIC = "anthropic"
