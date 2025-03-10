@@ -191,7 +191,7 @@ You can customize the research assistant's behavior through several parameters:
 - `number_of_queries`: Number of search queries to generate per section (default: 2)
 - `max_search_depth`: Maximum number of reflection and search iterations (default: 2)
 - `planner_provider`: Model provider for planning phase (default: "openai", but can be "groq")
-- `planner_model`: Specific model for planning (default: "o3-mini", but can be any Groq hosted model such as "deepseek-r1-distill-llama-70b")
+- `planner_model`: Specific model for planning (default: "claude-3-7-sonnet-latest", but can be any Groq hosted model such as "deepseek-r1-distill-llama-70b")
 - `writer_model`: Model for writing the report (default: "claude-3-5-sonnet-latest")
 - `search_api`: API to use for web searches (default: "tavily", options include "perplexity", "exa", "arxiv", "pubmed", "linkup")
 
