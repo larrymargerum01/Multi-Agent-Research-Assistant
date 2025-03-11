@@ -73,12 +73,9 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
         report_structure = str(report_structure)
 
     # Set writer model (model used for query writing)
-    if configurable.writer_chat_model is not None:
-        writer_model = configurable.writer_chat_model
-    else:
-        writer_provider = get_config_value(configurable.writer_provider)
-        writer_model_name = get_config_value(configurable.writer_model)
-        writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider) 
+    writer_provider = get_config_value(configurable.writer_provider)
+    writer_model_name = get_config_value(configurable.writer_model)
+    writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider) 
     structured_llm = writer_model.with_structured_output(Queries)
 
     # Format system instructions
@@ -106,11 +103,7 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
                         Each section must have: name, description, plan, research, and content fields."""
 
     # Run the planner
-    if configurable.planner_chat_model is not None:
-        planner_llm = configurable.planner_chat_model
-        
-    elif planner_model == "claude-3-7-sonnet-latest":
-
+    if planner_model == "claude-3-7-sonnet-latest":
         # Allocate a thinking budget for claude-3-7-sonnet-latest as the planner model
         planner_llm = init_chat_model(model=planner_model, 
                                       model_provider=planner_provider, 
@@ -118,9 +111,9 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
                                       thinking={"type": "enabled", "budget_tokens": 16_000})
 
     else:
-
-        # With other models, we can use with_structured_output
-        planner_llm = init_chat_model(model=planner_model, model_provider=planner_provider)
+        # With other models, thinking tokens are not specifically allocated
+        planner_llm = init_chat_model(model=planner_model, 
+                                      model_provider=planner_provider)
     
     # Generate the report sections
     structured_llm = planner_llm.with_structured_output(Sections)
@@ -207,12 +200,9 @@ def generate_queries(state: SectionState, config: RunnableConfig):
     number_of_queries = configurable.number_of_queries
 
     # Generate queries 
-    if configurable.writer_chat_model is not None:
-        writer_model = configurable.writer_chat_model
-    else:
-        writer_provider = get_config_value(configurable.writer_provider)
-        writer_model_name = get_config_value(configurable.writer_model)
-        writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider) 
+    writer_provider = get_config_value(configurable.writer_provider)
+    writer_model_name = get_config_value(configurable.writer_model)
+    writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider) 
     structured_llm = writer_model.with_structured_output(Queries)
 
     # Format system instructions
@@ -293,12 +283,9 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
                                                              section_content=section.content)
 
     # Generate section  
-    if configurable.writer_chat_model is not None:
-        writer_model = configurable.writer_chat_model
-    else:
-        writer_provider = get_config_value(configurable.writer_provider)
-        writer_model_name = get_config_value(configurable.writer_model)
-        writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider) 
+    writer_provider = get_config_value(configurable.writer_provider)
+    writer_model_name = get_config_value(configurable.writer_model)
+    writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider) 
 
     section_content = writer_model.invoke([SystemMessage(content=section_writer_instructions),
                                            HumanMessage(content=section_writer_inputs_formatted)])
@@ -307,9 +294,9 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
     section.content = section_content.content
 
     # Grade prompt 
-    section_grader_message = """Grade the report and consider follow-up questions for missing information.
-                               If the grade is 'pass', return empty strings for all follow-up queries.
-                               If the grade is 'fail', provide specific search queries to gather missing information."""
+    section_grader_message = ("Grade the report and consider follow-up questions for missing information. "
+                              "If the grade is 'pass', return empty strings for all follow-up queries. "
+                              "If the grade is 'fail', provide specific search queries to gather missing information.")
     
     section_grader_instructions_formatted = section_grader_instructions.format(topic=topic, 
                                                                                section_topic=section.description,
@@ -320,9 +307,7 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
     planner_provider = get_config_value(configurable.planner_provider)
     planner_model = get_config_value(configurable.planner_model)
 
-    if configurable.planner_chat_model is not None:
-        reflection_model = configurable.planner_chat_model.with_structured_output(Feedback)
-    elif planner_model == "claude-3-7-sonnet-latest":
+    if planner_model == "claude-3-7-sonnet-latest":
         # Allocate a thinking budget for claude-3-7-sonnet-latest as the planner model
         reflection_model = init_chat_model(model=planner_model, 
                                            model_provider=planner_provider, 
@@ -342,6 +327,7 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
         update={"completed_sections": [section]},
         goto=END
     )
+
     # Update the existing section with new content and update search queries
     else:
         return  Command(
@@ -375,12 +361,9 @@ def write_final_sections(state: SectionState, config: RunnableConfig):
     system_instructions = final_section_writer_instructions.format(topic=topic, section_name=section.name, section_topic=section.description, context=completed_report_sections)
 
     # Generate section  
-    if configurable.writer_chat_model is not None:
-        writer_model = configurable.writer_chat_model
-    else:
-        writer_provider = get_config_value(configurable.writer_provider)
-        writer_model_name = get_config_value(configurable.writer_model)
-        writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider) 
+    writer_provider = get_config_value(configurable.writer_provider)
+    writer_model_name = get_config_value(configurable.writer_model)
+    writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider) 
     
     section_content = writer_model.invoke([SystemMessage(content=system_instructions),
                                            HumanMessage(content="Generate a report section based on the provided sources.")])
@@ -403,6 +386,7 @@ def gather_completed_sections(state: ReportState):
     Returns:
         Dict with formatted sections as context
     """
+
     # List of completed sections
     completed_sections = state["completed_sections"]
 
@@ -425,6 +409,7 @@ def compile_final_report(state: ReportState):
     Returns:
         Dict containing the complete report
     """
+
     # Get sections
     sections = state["sections"]
     completed_sections = {s.name: s.content for s in state["completed_sections"]}
@@ -450,6 +435,7 @@ def initiate_final_section_writing(state: ReportState):
     Returns:
         List of Send commands for parallel section writing
     """
+
     # Kick off section writing in parallel via Send() API for any sections that do not require research
     return [
         Send("write_final_sections", {"topic": state["topic"], "section": s, "report_sections_from_research": state["report_sections_from_research"]}) 

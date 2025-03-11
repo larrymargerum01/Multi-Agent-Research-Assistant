@@ -18,6 +18,10 @@ The queries should:
 
 Make the queries specific enough to find high-quality, relevant sources while covering the breadth needed for the report structure.
 </Task>
+
+<Format>
+Call the Queries tool 
+</Format>
 """
 
 report_planner_instructions="""I want a plan for a report that is concise and focused.
@@ -66,6 +70,10 @@ Before submitting, review your structure to ensure it has no redundant sections 
 Here is feedback on the report structure from review (if any):
 {feedback}
 </Feedback>
+
+<Format>
+Call the Sections tool 
+</Format>
 """
 
 query_writer_instructions="""You are an expert technical writer crafting targeted web search queries that will gather comprehensive information for writing a technical report section.
@@ -88,6 +96,10 @@ The queries should:
 
 Make the queries specific enough to find high-quality, relevant sources.
 </Task>
+
+<Format>
+Call the Queries tool 
+</Format>
 """
 
 section_writer_instructions = """Write one section of a research report.
@@ -168,12 +180,14 @@ If the section content does not adequately address the section topic, generate {
 </task>
 
 <format>
-    grade: Literal["pass","fail"] = Field(
-        description="Evaluation result indicating whether the response meets requirements ('pass') or needs revision ('fail')."
-    )
-    follow_up_queries: List[SearchQuery] = Field(
-        description="List of follow-up search queries.",
-    )
+Call the Feedback tool and output with the following schema:
+
+grade: Literal["pass","fail"] = Field(
+    description="Evaluation result indicating whether the response meets requirements ('pass') or needs revision ('fail')."
+)
+follow_up_queries: List[SearchQuery] = Field(
+    description="List of follow-up search queries.",
+)
 </format>
 """
 

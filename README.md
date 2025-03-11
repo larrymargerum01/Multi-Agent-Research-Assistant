@@ -1,21 +1,14 @@
 # Open Deep Research
  
-Open Deep Research is a web research assistant that generates comprehensive reports on any topic following a workflow similar to [OpenAI](https://openai.com/index/introducing-deep-research/) and [Gemini](https://blog.google/products/gemini/google-gemini-deep-research/) Deep Research. However, it allows you to customize the models, prompts, report structure, search API, and research depth. Specifically, you can customize:
-
-- provide an outline with a desired report structure
-- set the planner model (e.g., DeepSeek, OpenAI reasoning model, etc)
-- give feedback on the plan of report sections and iterate until user approval 
-- set the search API (e.g., Tavily, Perplexity) and # of searches to run for each research iteration
-- set the depth of search for each section (# of iterations of writing, reflection, search, re-write)
-- customize the writer model (e.g., Anthropic)
+Open Deep Research is an open source assistant that automates research and produces customizable reports on any topic. It allows you to customize the research and writing process with specific models, prompts, report structure, and search tools. 
 
 ![report-generation](https://github.com/user-attachments/assets/6595d5cd-c981-43ec-8e8b-209e4fefc596)
 
 ## 🚀 Quickstart
 
-Ensure you have API keys set for your desired tools.
+Ensure you have API keys set for your desired search tools and models.
 
-Select a web search tool (by default Open Deep Research uses Tavily):
+Available search tools:
 
 * [Tavily API](https://tavily.com/) - General web search
 * [Perplexity API](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api) - General web search
@@ -23,42 +16,28 @@ Select a web search tool (by default Open Deep Research uses Tavily):
 * [ArXiv](https://arxiv.org/) - Academic papers in physics, mathematics, computer science, and more
 * [PubMed](https://pubmed.ncbi.nlm.nih.gov/) - Biomedical literature from MEDLINE, life science journals, and online books
 * [Linkup API](https://www.linkup.so/) - General web search
-* [duckduckgo API](https://duckduckgo.com/)
+* [DuckDuckGo API](https://duckduckgo.com/) - General web search
 
-Select a writer model (by default Open Deep Research uses Anthropic Claude 3.5 Sonnet):
+Open Deep Research uses a planner LLM for report planning and a writer LLM for report writing: 
 
-* [Anthropic](https://www.anthropic.com/)
-* [OpenAI](https://openai.com/)
-* [Groq](https://groq.com/)
-
-Select a planner model (by default Open Deep Research uses Claude 3.7 Sonnet with thinking enabled):
-
-* [Anthropic](https://www.anthropic.com/)
-* [OpenAI](https://openai.com/)
-* [Groq](https://groq.com/)
+* You can select any model that is integrated [with the `init_chat_model()` API](https://python.langchain.com/docs/how_to/chat_models_universal_init/)
+* See full list of supported integrations [here](https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html)
 
 ### Using the package
 
-(Recommended: Create a virtual environment):
-```bash
-python -m venv open_deep_research
-source open_deep_research/bin/activate
-```
-
-Install:
 ```bash
 pip install open-deep-research
 ```
 
-Ensure API keys are set for web search and planner / writer models, for example:
+As mentioned above, ensure API keys for LLMs and search tools are set: 
 ```bash
 export TAVILY_API_KEY=<your_tavily_api_key>
 export ANTHROPIC_API_KEY=<your_anthropic_api_key>
 ```
 
-See [src/open_deep_research/graph.ipynb](src/open_deep_research/graph.ipynb) for an example of usage in a Jupyter notebook.
+See [src/open_deep_research/graph.ipynb](src/open_deep_research/graph.ipynb) for example usage in a Jupyter notebook:
 
-Import and compile the graph:
+Compile the graph:
 ```python
 from langgraph.checkpoint.memory import MemorySaver
 from open_deep_research.graph import builder
@@ -66,18 +45,12 @@ memory = MemorySaver()
 graph = builder.compile(checkpointer=memory)
 ```
 
-View the graph:
-```python
-from IPython.display import Image, display
-display(Image(graph.get_graph(xray=1).draw_mermaid_png()))
-```
-
 Run the graph with a desired topic and configuration:
 ```python
 import uuid 
 thread = {"configurable": {"thread_id": str(uuid.uuid4()),
                            "search_api": "tavily",
-                           "planner_provider": "openai",
+                           "planner_provider": "anthropic",
                            "planner_model": "claude-3-7-sonnet-latest",
                            "writer_provider": "anthropic",
                            "writer_model": "claude-3-5-sonnet-latest",
@@ -87,7 +60,6 @@ thread = {"configurable": {"thread_id": str(uuid.uuid4()),
 topic = "Overview of the AI inference market with focus on Fireworks, Together.ai, Groq"
 async for event in graph.astream({"topic":topic,}, thread, stream_mode="updates"):
     print(event)
-    print("\n")
 ```
 
 The graph will stop when the report plan is generated, and you can pass feedback to update the report plan:
@@ -95,15 +67,12 @@ The graph will stop when the report plan is generated, and you can pass feedback
 from langgraph.types import Command
 async for event in graph.astream(Command(resume="Include a revenue estimate (ARR) in the sections"), thread, stream_mode="updates"):
     print(event)
-    print("\n")
 ```
 
 When you are satisfied with the report plan, you can pass `True` to proceed to report generation:
 ```python
-# Pass True to approve the report plan and proceed to report generation
 async for event in graph.astream(Command(resume=True), thread, stream_mode="updates"):
     print(event)
-    print("\n")
 ```
 
 ### Running LangGraph Studio UI locally
@@ -115,12 +84,11 @@ cd open_deep_research
 ```
 
 Edit the `.env` file with your API keys (e.g., the API keys for default selections are shown below):
-
 ```bash
 cp .env.example .env
 ```
 
-Set whatever APIs needed for your model and search tool choices
+Set whatever APIs needed for your model and search tools, for example:
 ```bash
 export TAVILY_API_KEY=<your_tavily_api_key>
 export ANTHROPIC_API_KEY=<your_anthropic_api_key>
@@ -191,11 +159,10 @@ You can customize the research assistant's behavior through several parameters:
 - `report_structure`: Define a custom structure for your report (defaults to a standard research report format)
 - `number_of_queries`: Number of search queries to generate per section (default: 2)
 - `max_search_depth`: Maximum number of reflection and search iterations (default: 2)
-- `planner_provider`: Model provider for planning phase (default: "openai", but can be "groq")
-- `planner_model`: Specific model for planning (default: "claude-3-7-sonnet-latest", but can be any Groq hosted model such as "deepseek-r1-distill-llama-70b")
-- `planner_chat_model`: Chat model for planning. This setting overrides planner_model (default: None. example: `ChatOpenAI(model_name="gpt-4o")`)
+- `planner_provider`: Model provider for planning phase (default: "anthropic", but can be any provider from supported integrations with `init_chat_model` as listed [here](https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html))
+- `planner_model`: Specific model for planning (default: "claude-3-7-sonnet-latest")
+- `writer_provider`: Model provider for writing phase (default: "anthropic", but can be any provider from supported integrations with `init_chat_model` as listed [here](https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html))
 - `writer_model`: Model for writing the report (default: "claude-3-5-sonnet-latest")
-- `writer_chat_model`: Chat model for writing the report. This setting overrides writer_model (default: None. example: `ChatAnthropic(model_name="claude-3-5-sonnet-latest")`)
 - `search_api`: API to use for web searches (default: "tavily", options include "perplexity", "exa", "arxiv", "pubmed", "linkup")
 
 These configurations allow you to fine-tune the research process based on your needs, from adjusting the depth of research to selecting specific AI models for different phases of report generation.
@@ -226,12 +193,16 @@ thread = {"configurable": {"thread_id": str(uuid.uuid4()),
 
 ### Model Considerations
 
-(1) With Groq, there are token per minute (TPM) limits if you are on the `on_demand` service tier:
+(1) You can pass any planner and writer models that are integrated [with the `init_chat_model()` API](https://python.langchain.com/docs/how_to/chat_models_universal_init/). See full list of supported integrations [here](https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html).
+
+(2) **The planner and writer models need to support structured outputs**: Check whether structured outputs are supported by the model you are using [here](https://python.langchain.com/docs/integrations/chat/).
+
+(3) With Groq, there are token per minute (TPM) limits if you are on the `on_demand` service tier:
 - The `on_demand` service tier has a limit of `6000 TPM`
 - You will want a [paid plan](https://github.com/cline/cline/issues/47#issuecomment-2640992272) for section writing with Groq models
 
-(2) `deepseek` [isn't great at function calling](https://api-docs.deepseek.com/guides/reasoning_model). Our assistant uses function calling to generate structured outputs for report sections and search queries within each section.  
-- Because, section writing performs a larger number of function calls, OpenAI, Anthropic, and certain OSS models that are stromng at function calling like Groq's `llama-3.3-70b-versatile` are advised.
+(4) `deepseek-R1` [is not strong at function calling](https://api-docs.deepseek.com/guides/reasoning_model), which the assistant uses to generate structured outputs for report sections and report section grading. See example traces [here](https://smith.langchain.com/public/07d53997-4a6d-4ea8-9a1f-064a85cd6072/r).  
+- Consider providers that are strong at function calling such as OpenAI, Anthropic, and certain OSS models like Groq's `llama-3.3-70b-versatile`.
 - If you see the following error, it is likely due to the model not being able to produce structured outputs (see [trace](https://smith.langchain.com/public/8a6da065-3b8b-4a92-8df7-5468da336cbe/r)):
 ```
 groq.APIError: Failed to call a function. Please adjust your prompt. See 'failed_generation' for more details.

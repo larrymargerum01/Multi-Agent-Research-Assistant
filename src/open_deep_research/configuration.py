@@ -28,28 +28,16 @@ class SearchAPI(Enum):
     LINKUP = "linkup"
     DUCKDUCKGO = "duckduckgo"
 
-class PlannerProvider(Enum):
-    ANTHROPIC = "anthropic"
-    OPENAI = "openai"
-    GROQ = "groq"
-
-class WriterProvider(Enum):
-    ANTHROPIC = "anthropic"
-    OPENAI = "openai"
-    GROQ = "groq"
-
 @dataclass(kw_only=True)
 class Configuration:
     """The configurable fields for the chatbot."""
     report_structure: str = DEFAULT_REPORT_STRUCTURE # Defaults to the default report structure
     number_of_queries: int = 2 # Number of search queries to generate per iteration
     max_search_depth: int = 2 # Maximum number of reflection + search iterations
-    planner_provider: PlannerProvider = PlannerProvider.ANTHROPIC  # Defaults to Anthropic as provider
+    planner_provider: str = "anthropic"  # Defaults to Anthropic as provider
     planner_model: str = "claude-3-7-sonnet-latest" # Defaults to claude-3-7-sonnet-latest
-    planner_chat_model: BaseChatModel = None # Set this if you want to specify the Planner model directly. planner_provider and planner_model will be ignored.
-    writer_provider: WriterProvider = WriterProvider.ANTHROPIC # Defaults to Anthropic as provider
+    writer_provider: str = "anthropic" # Defaults to Anthropic as provider
     writer_model: str = "claude-3-5-sonnet-latest" # Defaults to claude-3-5-sonnet-latest
-    writer_chat_model: BaseChatModel = None # Set this if you want to specify the Writer model directly. writer_provider and writer_model will be ignored.
     search_api: SearchAPI = SearchAPI.TAVILY # Default to TAVILY
     search_api_config: Optional[Dict[str, Any]] = None 
 
