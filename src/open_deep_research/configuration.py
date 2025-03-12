@@ -27,6 +27,7 @@ class SearchAPI(Enum):
     PUBMED = "pubmed"
     LINKUP = "linkup"
     DUCKDUCKGO = "duckduckgo"
+    GOOGLESEARCH = "googlesearch"
 
 @dataclass(kw_only=True)
 class Configuration:
