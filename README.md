@@ -17,7 +17,7 @@ Available search tools:
 * [PubMed](https://pubmed.ncbi.nlm.nih.gov/) - Biomedical literature from MEDLINE, life science journals, and online books
 * [Linkup API](https://www.linkup.so/) - General web search
 * [DuckDuckGo API](https://duckduckgo.com/) - General web search
-* [Google Search API/Scrapper](https://google.com/) - General web search
+* [Google Search API/Scrapper](https://google.com/) - Create custom search engine [here](https://programmablesearchengine.google.com/controlpanel/all) and get API key [here](https://developers.google.com/custom-search/v1/introduction)
 
 Open Deep Research uses a planner LLM for report planning and a writer LLM for report writing: 
 
@@ -89,7 +89,9 @@ Edit the `.env` file with your API keys (e.g., the API keys for default selectio
 cp .env.example .env
 ```
 
-Set whatever APIs needed for your model and search tools, for example:
+Set whatever APIs needed for your model and search tools.
+
+Here are examples for several of the model and tool integrations available:
 ```bash
 export TAVILY_API_KEY=<your_tavily_api_key>
 export ANTHROPIC_API_KEY=<your_anthropic_api_key>
@@ -99,6 +101,8 @@ export EXA_API_KEY=<your_exa_api_key>
 export PUBMED_API_KEY=<your_pubmed_api_key>
 export PUBMED_EMAIL=<your_email@example.com>
 export LINKUP_API_KEY=<your_linkup_api_key>
+export GOOGLE_API_KEY=<your_google_api_key>
+export GOOGLE_CX=<your_google_custom_search_engine_id>
 ```
 
 Launch the assistant with the LangGraph server locally, which will open in your browser:
