@@ -117,12 +117,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev
 ```
 
-#### Windows
+#### Windows / Linux
 
 ```powershell
 # Install dependencies 
 pip install -e .
-pip install langgraph-cli[inmem]
+pip install -U "langgraph-cli[inmem]" 
 
 # Start the LangGraph server
 langgraph dev
