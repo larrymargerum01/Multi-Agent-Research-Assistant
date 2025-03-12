@@ -17,6 +17,7 @@ Available search tools:
 * [PubMed](https://pubmed.ncbi.nlm.nih.gov/) - Biomedical literature from MEDLINE, life science journals, and online books
 * [Linkup API](https://www.linkup.so/) - General web search
 * [DuckDuckGo API](https://duckduckgo.com/) - General web search
+* [Google Search API/Scrapper](https://google.com/) - General web search
 
 Open Deep Research uses a planner LLM for report planning and a writer LLM for report writing: 
 
