@@ -23,7 +23,8 @@ dependencies = [
     "duckduckgo-search>=3.0.0",
     "exa-py>=1.8.8",
     "requests>=2.32.3",
-    "beautifulsoup4==4.13.3"
+    "beautifulsoup4==4.13.3",
+    "langchain-deepseek>=0.1.2"
 ]
 
 [project.optional-dependencies]
