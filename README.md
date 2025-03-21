@@ -84,7 +84,7 @@ git clone https://github.com/langchain-ai/open_deep_research.git
 cd open_deep_research
 ```
 
-Edit the `.env` file with your API keys (e.g., the API keys for default selections are shown below):
+Then edit the `.env` file to customize the environment variables according to your needs. These environment variables control the model selection, search tools, and other configuration settings. When you run the application, these values will be automatically loaded via `python-dotenv` (because `langgraph.json` point to the "env" file).
 ```bash
 cp .env.example .env
 ```
