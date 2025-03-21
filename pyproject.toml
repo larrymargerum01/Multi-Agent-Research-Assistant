@@ -24,7 +24,8 @@ dependencies = [
     "exa-py>=1.8.8",
     "requests>=2.32.3",
     "beautifulsoup4==4.13.3",
-    "langchain-deepseek>=0.1.2"
+    "langchain-deepseek>=0.1.2",
+    "python-dotenv==1.0.1",
 ]
 
 [project.optional-dependencies]
