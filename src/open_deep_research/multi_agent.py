@@ -1,17 +1,14 @@
-
-from typing import List, Dict, Optional, Annotated, TypedDict, operator, Literal
+from typing import List,  Annotated, TypedDict, operator, Literal
 from pydantic import BaseModel, Field
 
 from langchain.chat_models import init_chat_model
-from langchain_core.tools import InjectedToolCallId, tool
-from langgraph_supervisor import create_supervisor, create_handoff_tool
-from langgraph.prebuilt import InjectedState
+from langchain_core.tools import tool
 from langgraph.graph import MessagesState
 from langchain_tavily import TavilySearch
 
 from langgraph.types import Command, Send
-from langgraph.prebuilt import create_react_agent
 from langgraph.graph import START, END, StateGraph
+
 
 ## LLM 
 llm = init_chat_model(
@@ -25,6 +22,7 @@ tavily_search_tool = TavilySearch(
     topic="general",
 )
 
+@tool
 class Section(BaseModel):
     name: str = Field(
         description="Name for this section of the report.",
@@ -65,23 +63,6 @@ class Done(BaseModel):
       """Tool to signal that the work is complete."""
       done: bool
 
-# Handoff Tool
-@tool()
-def handoff_to_researchers(
-    state: Annotated[dict, InjectedState], # What is this?
-    tool_call_id: Annotated[str, InjectedToolCallId], # What is this?
-):  
-    # Tool Message
-    tool_message = [{"role": "tool", 
-    "content": f"Successfully transferred to research_agent team", 
-    "name": "handoff_to_researchers", "tool_call_id": tool_call_id}]
-
-    # Send to research_agent team
-    return Command(
-        graph=Command.PARENT,
-        # Parallel handoffs to each researcher
-        goto=[Send("research_agent", {"section": s, "messages": state['messages'] + tool_message}) for s in state['sections']],
-        )
 
 ## State
 class ReportStateOutput(TypedDict):
@@ -119,100 +100,18 @@ You are scoping research for a report based on a user-provided topic.
    - Leave the content preview empty because the research agent will fill it in.
    - Ensure sections are scoped to be independently researchable.
 
-4. **Delegate to Researchers**  
-   After the sections are defined, call the `handoff_to_researchers` tool. This will send each section to the `research_agent` team for parallel research.
-
-5. **Assemble the Final Report**  
+4. **Assemble the Final Report**  
    When all sections are returned:
    - Use the `Introduction` tool to generate a clear and informative introduction.
    - Use the `Conclusion` tool to summarize key insights and close the report.
 
-6. **Finish the Workflow**  
+5. **Finish the Workflow**  
    When the final report is complete, call the `Done` tool to signal that the work is finished.
 
 ### Additional Notes:
 - You are a reasoning model. Think through problems step-by-step before acting.
 - Use your tools wisely—especially the search tool—to improve research quality.
 - Maintain a clear, informative, and professional tone throughout."""
-
-# Tools
-supervisor_tools = [tavily_search_tool, handoff_to_researchers, Introduction, Conclusion]
-supervisor_tools_by_name = {tool.name: tool for tool in supervisor_tools}
-
-def llm_call(state: ReportState):
-    """LLM decides whether to call a tool or not"""
-
-    return {
-        "messages": [
-            llm.bind_tools(supervisor_tools_by_name).invoke(
-                [
-                    {"role": "system",
-                     "content": SUPERVISOR_INSTRUCTIONS
-                    }
-                ]
-                + state["messages"]
-            )
-        ]
-    }
-
-def tool_node(state: dict):
-    """Performs the tool call"""
-
-    result = []
-    # Get the last message
-    for tool_call in state["messages"][-1].tool_calls:
-        # Get the tool
-        tool = supervisor_tools_by_name[tool_call["name"]]
-        # Perform the tool call
-        observation = tool.invoke(tool_call["args"])
-        # Append to messages 
-        result.append([{"role": "tool", 
-                        "content": observation, 
-                        "name": tool_call["name"], 
-                        "tool_call_id": tool_call["id"]}])
-        # Update state depending on the tool call 
-        if tool_call["name"] == "Sections":
-            return {"messages": result, "sections": tool_call["args"]}
-        if tool_call["name"] == "Introduction":
-            return {"messages": result, "sections": [tool_call["args"]] + state["sections"]}
-        if tool_call["name"] == "Conclusion":
-            return {"messages": result, "sections": state["sections"] + [tool_call["args"]]}
-        else:
-            return {"messages": result}
-
-def should_continue(state: MessagesState) -> Literal["environment", END]:
-    """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
-
-    messages = state["messages"]
-    last_message = messages[-1]
-    
-    # If the LLM makes a tool call, then perform an action
-    if last_message.tool_calls:
-        return "Action"
-    
-    # Otherwise research is complete and we can assemble the final report
-    all_sections = "\n\n".join([s.content for s in state["sections"]])
-    return Command(goto=END, update={"final_report": all_sections})
-
-# Build workflow
-agent_builder = StateGraph(MessagesState)
-agent_builder.add_node("llm_call", llm_call)
-agent_builder.add_node("environment", tool_node)
-agent_builder.add_edge(START, "llm_call")
-agent_builder.add_conditional_edges(
-    "llm_call",
-    should_continue,
-    {
-        # Name returned by should_continue : Name of next node to visit
-        "Action": "environment",
-        END: END,
-    },
-)
-agent_builder.add_edge("environment", "llm_call")
-supervisor = agent_builder.compile()
-
-
-# Research Agent
 
 RESEARCH_INSTRUCTIONS = """
 You are a researcher responsible for completing a specific section of a report.
@@ -257,15 +156,69 @@ You are a reasoning model. Think through the task step-by-step before writing. B
 """
 
 # Tools
+supervisor_tools = [tavily_search_tool, Sections, Introduction, Conclusion]
+supervisor_tools_by_name = {tool.name: tool for tool in supervisor_tools}
+
 research_tools = [tavily_search_tool, Section]
 research_tools_by_name = {tool.name: tool for tool in research_tools}
 
-def llm_call(state: ReportState):
+def supervisor(state: ReportState):
+    """LLM decides whether to call a tool or not"""
+
+    # Messages
+    messages = state["messages"]
+
+    # Check if we have research completed
+    if state.get("sections"):
+        research_complete_message = {"role": "user", "content": "Research is complete. Write the introduction and conclusion.\n\n" + "\n\n".join([s.content for s in state["sections"]])}
+        messages = messages + [research_complete_message]
+
+    # Invoke LLM
+    return {
+        "messages": [
+            llm.bind_tools(supervisor_tools_by_name).invoke(
+                [
+                    {"role": "system",
+                     "content": SUPERVISOR_INSTRUCTIONS,
+                    }
+                ]
+                + messages
+            )
+        ]
+    }
+
+def supervisor_tools(state: ReportState)  -> Command[Literal["supervisor", "research_team", "__end__"]]:
+    """Performs the tool call and sends to the research agent"""
+
+    result = []
+    # Get the last message
+    for tool_call in state["messages"][-1].tool_calls:
+        # Get the tool
+        tool = supervisor_tools_by_name[tool_call["name"]]
+        # Perform the tool call
+        observation = tool.invoke(tool_call["args"])
+        # Append to messages 
+        result.append([{"role": "tool", 
+                        "content": observation, 
+                        "name": tool_call["name"], 
+                        "tool_call_id": tool_call["id"]}])
+        # Update state depending on the tool call 
+        if tool_call["name"] == "Sections":
+            return Command(goto=[Send("research_team", {"section": s}) for s in state['sections']])
+        if tool_call["name"] == "Introduction":
+            return Command(goto="supervisor", update={"sections": [tool_call["args"]] + state["sections"], "messages": result})
+        if tool_call["name"] == "Conclusion":
+            return Command(goto="supervisor", update={"sections": state["sections"] + [tool_call["args"]], "messages": result})
+        else:
+            return Command(goto="supervisor", update={"messages": result})
+
+def research_agent(state: SectionState):
     """LLM decides whether to call a tool or not"""
 
     return {
         "messages": [
-            llm.bind_tools(research_tools).invoke(
+            # Enforce tool calling to either perform more search or call the Section tool to write the section
+            init_chat_model("openai:o3", tool_choice="required", temperature=0.0).bind_tools(research_tools).invoke(
                 [
                     {"role": "system",
                      "content": RESEARCH_INSTRUCTIONS.format(section_name=state["section"].name, section_description=state["section"].description)
@@ -276,8 +229,8 @@ def llm_call(state: ReportState):
         ]
     }
 
-def tool_node(state: dict):
-    """Performs the tool call"""
+def research_agent_tools(state: SectionState) -> Command[Literal["supervisor", "research_agent"]]:
+    """Performs the tool call and route to supervisor or continue the research loop"""
 
     result = []
     # Get the last message
@@ -291,45 +244,52 @@ def tool_node(state: dict):
                         "content": observation, 
                         "name": tool_call["name"], 
                         "tool_call_id": tool_call["id"]}])
-        # Update state depending on the tool call 
+        # It it wrote the section, send it to the supervisor
         if tool_call["name"] == "Section":
-            return {"messages": result, "section": tool_call["args"]}
+            return Command(goto="supervisor", update={"messages": result, "completed_sections": [tool_call["args"]]})
+        # Otherwise continue the research loop
+        elif tool_call["name"] == "tavily_search_tool":
+            return Command(goto="research_agent", update={"messages": result})
         else:
-            return {"messages": result}
+            return ValueError(f"Tool {tool_call['name']} invalid")
 
-def should_continue(state: MessagesState) -> Literal["environment", END]:
+def should_continue(state: ReportState) -> Literal["supervisor_tools", END]:
     """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
 
     messages = state["messages"]
     last_message = messages[-1]
-    
+
     # If the LLM makes a tool call, then perform an action
     if last_message.tool_calls:
-        return "Action"
-    
+        return "supervisor_tools"
+
     # Otherwise research is complete and we can assemble the final report
     all_sections = "\n\n".join([s.content for s in state["sections"]])
     return Command(goto=END, update={"final_report": all_sections})
 
+# Research agent workflow
+research_builder = StateGraph(SectionState, output=SectionOutputState)
+research_builder.add_node("research_agent", research_agent)
+research_builder.add_node("research_agent_tools", research_agent_tools)
+research_builder.add_edge(START, "research_agent") 
+
 # Build workflow
-agent_builder = StateGraph(MessagesState)
-agent_builder.add_node("llm_call", llm_call)
-agent_builder.add_node("environment", tool_node)
-agent_builder.add_edge(START, "llm_call")
-agent_builder.add_conditional_edges(
-    "llm_call",
+supervisor_builder = StateGraph(ReportState, input=MessagesState, output=ReportStateOutput)
+supervisor_builder.add_node("supervisor", supervisor)
+supervisor_builder.add_node("supervisor_tools", supervisor_tools)
+supervisor_builder.add_node("research_team", research_builder.compile())
+
+# Flow of the supervisor agent
+supervisor_builder.add_edge(START, "supervisor")
+supervisor_builder.add_conditional_edges(
+    "supervisor",
     should_continue,
     {
         # Name returned by should_continue : Name of next node to visit
-        "Action": "environment",
+        "supervisor_tools": "supervisor_tools",
         END: END,
     },
 )
-agent_builder.add_edge("environment", "llm_call")
-research_agent = agent_builder.compile()
 
-research_team = create_supervisor(
-    [research_agent, math_agent],
-    model=model,
-    supervisor_name="research_supervisor"
-).compile(name="research_team")
+# Compile the supervisor agent
+agent = supervisor_builder.compile(name="research_team")
