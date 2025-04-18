@@ -9,11 +9,9 @@ from langchain_tavily import TavilySearch
 from langgraph.types import Command, Send
 from langgraph.graph import START, END, StateGraph
 
-
 ## LLM 
 llm = init_chat_model(
-    model="openai:o3-mini",
-    temperature=0.0
+    model="openai:o3-mini"
 )
 
 ## Tools 
@@ -36,7 +34,7 @@ class Section(BaseModel):
 
 @tool
 class Sections(BaseModel):
-    sections: List[Section] = Field(
+    sections: List[str] = Field(
         description="Sections of the report.",
     )
 
@@ -63,54 +61,61 @@ class Done(BaseModel):
       """Tool to signal that the work is complete."""
       done: bool
 
-
 ## State
 class ReportStateOutput(TypedDict):
     final_report: str # Final report
 
 class ReportState(MessagesState):
-    sections: list[Section] # List of report sections 
+    sections: list[str] # List of report sections 
     completed_sections: Annotated[list, operator.add] # Send() API key
     final_report: str # Final report
 
 class SectionState(MessagesState):
-    section: Section # Report section  
+    section: str # Report section  
     completed_sections: list[Section] # Final key we duplicate in outer state for Send() API
 
 class SectionOutputState(TypedDict):
     completed_sections: list[Section] # Final key we duplicate in outer state for Send() API
 
 ## Supervisor
-
 SUPERVISOR_INSTRUCTIONS = """
 You are scoping research for a report based on a user-provided topic.
 
 ### Your responsibilities:
 
-1. **Clarify the Topic**  
-   Engage with the user to clarify their intent. Ask follow-up questions to fully understand the topic, goals, constraints, and any preferences for the report.
+1. **Gather Background Information**  
+   Based upon the user's topic, use the `tavily_search_tool` to collect relevant information about the topic. 
+   - You MUST perform at least  1 search to gather comprehensive context
+   - Take time to analyze and synthesize the search results before proceeding
+   - Do not proceed to the next step until you have an understanding of the topic
 
-2. **Gather Background Information**  
-   Use the `tavily_search_tool` to collect relevant information about the topic. Use multiple focused queries to build context from different angles.
+2. **Clarify the Topic**  
+   After your initial research, engage with the user to clarify any questions that arose.
+   - Ask specific follow-up questions based on what you learned from your searches
+   - Do not proceed until you fully understand the topic, goals, constraints, and any preferences
+   - Synthesize what you've learned so far before asking questions
+   - You MUST engage in at least one clarification exchange with the user before proceeding
 
 3. **Define Report Structure**  
-   Once you understand the topic:
-   - Use the `Sections` tool to define a structured outline of the report.
-   - Each section should include a clear name and scope description.
-   - Leave the content preview empty because the research agent will fill it in.
-   - Ensure sections are scoped to be independently researchable.
+   Only after completing both research AND clarification with the user:
+   - Use the `Sections` tool to define a list of report sections
+   - Each section should be a written description with: a section name and a section research plan
+   - Do not include sections for introductions or conclusions (We'll add these later)
+   - Ensure sections are scoped to be independently researchable
+   - Base your sections on both the search results AND user clarifications
 
 4. **Assemble the Final Report**  
    When all sections are returned:
-   - Use the `Introduction` tool to generate a clear and informative introduction.
-   - Use the `Conclusion` tool to summarize key insights and close the report.
+   - Use the `Introduction` tool to generate a clear and informative introduction
+   - Use the `Conclusion` tool to summarize key insights and close the report
 
 5. **Finish the Workflow**  
    When the final report is complete, call the `Done` tool to signal that the work is finished.
 
 ### Additional Notes:
 - You are a reasoning model. Think through problems step-by-step before acting.
-- Use your tools wisely—especially the search tool—to improve research quality.
+- IMPORTANT: Do not rush to create the report structure. Gather information thoroughly first.
+- Use multiple searches to build a complete picture before drawing conclusions.
 - Maintain a clear, informative, and professional tone throughout."""
 
 RESEARCH_INSTRUCTIONS = """
@@ -121,22 +126,38 @@ You are a researcher responsible for completing a specific section of a report.
 1. **Understand the Section Scope**  
    Begin by reviewing the section name and description. This defines your research focus. Use it as your objective.
 
-<Section Name>
-{section_name}
-</Section Name>
 
 <Section Description>
 {section_description}
 </Section Description>
 
 2. **Research the Topic**  
-   Use the `tavily_search_tool` to gather relevant information and evidence. Search iteratively if needed to fully understand the section’s scope.
+   Use the `tavily_search_tool` to gather relevant information and evidence. Search iteratively if needed to fully understand the section's scope.
+   - Save the URLs from your searches - you will need to cite them later
+   - Aim to gather information from at least 3 different sources
 
 3. **Use the Section Tool**  
-   Once you’ve gathered sufficient context, write a high-quality called the Section tool to write the section. Your content should:
-   - `name`: The title of the section
-   - `description`: The scope of research you completed 
-   - `content`: The completed body of text for the section
+   Once you've gathered sufficient context, write a high-quality section using the Section tool:
+   - `name`: The title of the section (formatted as a Markdown H2 with ##)
+   - `description`: The scope of research you completed (brief, 1-2 sentences)
+   - `content`: The completed body of text for the section, which MUST:
+     - Be formatted in Markdown style
+     - Be MAXIMUM 200 words (strictly enforce this limit)
+     - Include a "## Sources" subsection at the end with a numbered list of URLs used
+     - Use clear, concise language with bullet points where appropriate
+     - Include relevant facts, statistics, or expert opinions
+
+Example format for content:
+```
+## [Section Title]
+
+[Body text in markdown format, maximum 200 words...]
+
+## Sources
+1. [URL 1]
+2. [URL 2]
+3. [URL 3]
+```
 
 ---
 
@@ -146,6 +167,8 @@ You are a reasoning model. Think through the task step-by-step before writing. B
 
 - You may reason internally before producing content.
 - Your job is not to summarize randomly—it's to **research and synthesize a strong, scoped contribution** to a report.
+- Always track and cite your sources.
+- Be concise - stay within the 200 word limit for the main content.
 
 ---
 
@@ -153,14 +176,15 @@ You are a reasoning model. Think through the task step-by-step before writing. B
 - Do not write introductions or conclusions unless explicitly part of your section.
 - Keep a professional, factual tone.
 - If you do not have enough information to complete the section, search again or clarify your approach before continuing.
+- Always follow markdown formatting.
 """
 
 # Tools
-supervisor_tools = [tavily_search_tool, Sections, Introduction, Conclusion]
-supervisor_tools_by_name = {tool.name: tool for tool in supervisor_tools}
+supervisor_tool_list = [tavily_search_tool, Sections, Introduction, Conclusion, Done]
+supervisor_tools_by_name = {tool.name: tool for tool in supervisor_tool_list}
 
-research_tools = [tavily_search_tool, Section]
-research_tools_by_name = {tool.name: tool for tool in research_tools}
+research_tool_list = [tavily_search_tool, Section]
+research_tools_by_name = {tool.name: tool for tool in research_tool_list}
 
 def supervisor(state: ReportState):
     """LLM decides whether to call a tool or not"""
@@ -168,15 +192,15 @@ def supervisor(state: ReportState):
     # Messages
     messages = state["messages"]
 
-    # Check if we have research completed
+    # If sections have been defined, then the supervisor has sent them to the research agents, research agents have completed their work, and the supervisor has received the sections
     if state.get("sections"):
-        research_complete_message = {"role": "user", "content": "Research is complete. Write the introduction and conclusion.\n\n" + "\n\n".join([s.content for s in state["sections"]])}
+        research_complete_message = {"role": "user", "content": "Research is complete. Write the introduction and conclusion. Here is the body of the report to use as context: \n\n" + "\n\n".join([s.content for s in state["sections"]])}
         messages = messages + [research_complete_message]
 
-    # Invoke LLM
+    # Invoke
     return {
         "messages": [
-            llm.bind_tools(supervisor_tools_by_name).invoke(
+            llm.bind_tools(supervisor_tool_list).invoke(
                 [
                     {"role": "system",
                      "content": SUPERVISOR_INSTRUCTIONS,
@@ -197,63 +221,32 @@ def supervisor_tools(state: ReportState)  -> Command[Literal["supervisor", "rese
         tool = supervisor_tools_by_name[tool_call["name"]]
         # Perform the tool call
         observation = tool.invoke(tool_call["args"])
+
         # Append to messages 
-        result.append([{"role": "tool", 
+        result.append({"role": "tool", 
                         "content": observation, 
                         "name": tool_call["name"], 
-                        "tool_call_id": tool_call["id"]}])
+                        "tool_call_id": tool_call["id"]})
+        
         # Update state depending on the tool call 
         if tool_call["name"] == "Sections":
-            return Command(goto=[Send("research_team", {"section": s}) for s in state['sections']])
+            # Send the sections to the research agents
+            # TODO: Discuss w/ Vadym. This is basically a handoff where state is initialized w/ section (scope of research).
+            return Command(goto=[Send("research_team", {"section": s}) for s in observation.sections], update={"messages": result})
+        
         if tool_call["name"] == "Introduction":
-            return Command(goto="supervisor", update={"sections": [tool_call["args"]] + state["sections"], "messages": result})
+            # Add the introduction to the sections
+            return Command(goto="supervisor", update={"sections": [observation] + state["completed_sections"], "messages": result})
+        
         if tool_call["name"] == "Conclusion":
-            return Command(goto="supervisor", update={"sections": state["sections"] + [tool_call["args"]], "messages": result})
+            # Compile the final report
+            all_sections = "\n\n".join([s.content for s in state["completed_sections"] + [observation]])
+            return Command(goto="supervisor", update={"final_report": all_sections, "messages": result})
+    
         else:
             return Command(goto="supervisor", update={"messages": result})
 
-def research_agent(state: SectionState):
-    """LLM decides whether to call a tool or not"""
-
-    return {
-        "messages": [
-            # Enforce tool calling to either perform more search or call the Section tool to write the section
-            init_chat_model("openai:o3", tool_choice="required", temperature=0.0).bind_tools(research_tools).invoke(
-                [
-                    {"role": "system",
-                     "content": RESEARCH_INSTRUCTIONS.format(section_name=state["section"].name, section_description=state["section"].description)
-                    }
-                ]
-                + state["messages"]
-            )
-        ]
-    }
-
-def research_agent_tools(state: SectionState) -> Command[Literal["supervisor", "research_agent"]]:
-    """Performs the tool call and route to supervisor or continue the research loop"""
-
-    result = []
-    # Get the last message
-    for tool_call in state["messages"][-1].tool_calls:
-        # Get the tool
-        tool = research_tools_by_name[tool_call["name"]]
-        # Perform the tool call
-        observation = tool.invoke(tool_call["args"])
-        # Append to messages 
-        result.append([{"role": "tool", 
-                        "content": observation, 
-                        "name": tool_call["name"], 
-                        "tool_call_id": tool_call["id"]}])
-        # It it wrote the section, send it to the supervisor
-        if tool_call["name"] == "Section":
-            return Command(goto="supervisor", update={"messages": result, "completed_sections": [tool_call["args"]]})
-        # Otherwise continue the research loop
-        elif tool_call["name"] == "tavily_search_tool":
-            return Command(goto="research_agent", update={"messages": result})
-        else:
-            return ValueError(f"Tool {tool_call['name']} invalid")
-
-def should_continue(state: ReportState) -> Literal["supervisor_tools", END]:
+def supervisor_should_continue(state: ReportState) -> Literal["supervisor_tools", END]:
     """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
 
     messages = state["messages"]
@@ -262,16 +255,79 @@ def should_continue(state: ReportState) -> Literal["supervisor_tools", END]:
     # If the LLM makes a tool call, then perform an action
     if last_message.tool_calls:
         return "supervisor_tools"
+    
+    # Else end because the supervisor asked a question or is finished
+    else:
+        return END
 
-    # Otherwise research is complete and we can assemble the final report
-    all_sections = "\n\n".join([s.content for s in state["sections"]])
-    return Command(goto=END, update={"final_report": all_sections})
+def research_agent(state: SectionState):
+    """LLM decides whether to call a tool or not"""
 
+    return {
+        "messages": [
+            # Enforce tool calling to either perform more search or call the Section tool to write the section
+            llm.bind_tools(research_tool_list).invoke(
+                [
+                    {"role": "system",
+                     "content": RESEARCH_INSTRUCTIONS.format(section_description=state["section"])
+                    }
+                ]
+                + state["messages"]
+            )
+        ]
+    }
+
+def research_agent_tools(state: SectionState):
+    """Performs the tool call and route to supervisor or continue the research loop"""
+
+    result = []
+    # Get the last message
+    for tool_call in state["messages"][-1].tool_calls:
+        # Get the tool
+        tool = research_tools_by_name[tool_call["name"]]
+        # Perform the tool call 
+        observation = tool.invoke(tool_call["args"])
+        # Append to messages 
+        result.append({"role": "tool", 
+                       "content": observation, 
+                       "name": tool_call["name"], 
+                       "tool_call_id": tool_call["id"]})
+        # It it wrote the section, send it to the supervisor
+        if tool_call["name"] == "Section":
+            # Write the competed section to state 
+            return {"messages": result, "completed_sections": [observation]}
+        # Otherwise continue the research loop            
+        else:
+            return {"messages": result}
+
+def research_agent_should_continue(state: SectionState) -> Literal["research_agent_tools", END]:
+    """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
+
+    messages = state["messages"]
+    last_message = messages[-1]
+
+    # If the LLM makes a tool call, then perform an action
+    if last_message.tool_calls:
+        return "research_agent_tools"
+
+    else:
+        return END
+    
 # Research agent workflow
 research_builder = StateGraph(SectionState, output=SectionOutputState)
 research_builder.add_node("research_agent", research_agent)
 research_builder.add_node("research_agent_tools", research_agent_tools)
 research_builder.add_edge(START, "research_agent") 
+research_builder.add_conditional_edges(
+    "research_agent",
+    research_agent_should_continue,
+    {
+        # Name returned by should_continue : Name of next node to visit
+        "research_agent_tools": "research_agent_tools",
+        END: END,
+    },
+)
+research_builder.add_edge("research_agent_tools", "research_agent")
 
 # Build workflow
 supervisor_builder = StateGraph(ReportState, input=MessagesState, output=ReportStateOutput)
@@ -283,13 +339,12 @@ supervisor_builder.add_node("research_team", research_builder.compile())
 supervisor_builder.add_edge(START, "supervisor")
 supervisor_builder.add_conditional_edges(
     "supervisor",
-    should_continue,
+    supervisor_should_continue ,
     {
         # Name returned by should_continue : Name of next node to visit
         "supervisor_tools": "supervisor_tools",
         END: END,
     },
 )
-
-# Compile the supervisor agent
+supervisor_builder.add_edge("research_team", "supervisor")
 agent = supervisor_builder.compile(name="research_team")
