@@ -56,11 +56,6 @@ class Conclusion(BaseModel):
         description="The content of the conclusion, summarizing the report."
     )
 
-@tool
-class Done(BaseModel):
-      """Tool to signal that the work is complete."""
-      done: bool
-
 ## State
 class ReportStateOutput(TypedDict):
     final_report: str # Final report
@@ -106,11 +101,14 @@ You are scoping research for a report based on a user-provided topic.
 
 4. **Assemble the Final Report**  
    When all sections are returned:
-   - Use the `Introduction` tool to generate a clear and informative introduction
-   - Use the `Conclusion` tool to summarize key insights and close the report
-
-5. **Finish the Workflow**  
-   When the final report is complete, call the `Done` tool to signal that the work is finished.
+   - IMPORTANT: First check your previous messages to see what you've already completed
+   - If you haven't created an introduction yet, use the `Introduction` tool to generate one
+     - Set content to include report title with a single # (H1 level) at the beginning
+     - Example: "# [Report Title]\n\n[Introduction content...]"
+   - After the introduction, use the `Conclusion` tool to summarize key insights
+     - Set content to include conclusion title with ## (H2 level) at the beginning
+     - Example: "## Conclusion\n\n[Conclusion content...]"
+   - Do not call the same tool twice - check your message history
 
 ### Additional Notes:
 - You are a reasoning model. Think through problems step-by-step before acting.
@@ -138,12 +136,13 @@ You are a researcher responsible for completing a specific section of a report.
 
 3. **Use the Section Tool**  
    Once you've gathered sufficient context, write a high-quality section using the Section tool:
-   - `name`: The title of the section (formatted as a Markdown H2 with ##)
+   - `name`: The title of the section
    - `description`: The scope of research you completed (brief, 1-2 sentences)
    - `content`: The completed body of text for the section, which MUST:
+     - Begin with the section title formatted as "## [Section Title]" (H2 level with ##)
      - Be formatted in Markdown style
      - Be MAXIMUM 200 words (strictly enforce this limit)
-     - Include a "## Sources" subsection at the end with a numbered list of URLs used
+     - End with a "### Sources" subsection (H3 level with ###) containing a numbered list of URLs used
      - Use clear, concise language with bullet points where appropriate
      - Include relevant facts, statistics, or expert opinions
 
@@ -153,7 +152,7 @@ Example format for content:
 
 [Body text in markdown format, maximum 200 words...]
 
-## Sources
+### Sources
 1. [URL 1]
 2. [URL 2]
 3. [URL 3]
@@ -180,7 +179,7 @@ You are a reasoning model. Think through the task step-by-step before writing. B
 """
 
 # Tools
-supervisor_tool_list = [tavily_search_tool, Sections, Introduction, Conclusion, Done]
+supervisor_tool_list = [tavily_search_tool, Sections, Introduction, Conclusion]
 supervisor_tools_by_name = {tool.name: tool for tool in supervisor_tool_list}
 
 research_tool_list = [tavily_search_tool, Section]
@@ -192,9 +191,9 @@ def supervisor(state: ReportState):
     # Messages
     messages = state["messages"]
 
-    # If sections have been defined, then the supervisor has sent them to the research agents, research agents have completed their work, and the supervisor has received the sections
-    if state.get("sections"):
-        research_complete_message = {"role": "user", "content": "Research is complete. Write the introduction and conclusion. Here is the body of the report to use as context: \n\n" + "\n\n".join([s.content for s in state["sections"]])}
+    # If sections have been completed, but we don't yet have the final report, then we need to initiate writing the introduction and conclusion
+    if state.get("completed_sections") and not state.get("final_report"):
+        research_complete_message = {"role": "user", "content": "Research is complete. Now write the introduction and conclusion for the report. Here are the completed main body sections: \n\n" + "\n\n".join([s.content for s in state["completed_sections"]])}
         messages = messages + [research_complete_message]
 
     # Invoke
@@ -231,17 +230,35 @@ def supervisor_tools(state: ReportState)  -> Command[Literal["supervisor", "rese
         # Update state depending on the tool call 
         if tool_call["name"] == "Sections":
             # Send the sections to the research agents
-            # TODO: Discuss w/ Vadym. This is basically a handoff where state is initialized w/ section (scope of research).
             return Command(goto=[Send("research_team", {"section": s}) for s in observation.sections], update={"messages": result})
         
         if tool_call["name"] == "Introduction":
-            # Add the introduction to the sections
-            return Command(goto="supervisor", update={"sections": [observation] + state["completed_sections"], "messages": result})
+            # Format introduction with proper H1 heading if not already formatted
+            intro_content = observation.content
+            if not intro_content.startswith("# "):
+                intro_content = f"# {observation.name}\n\n{intro_content}"
+                
+            # Store introduction while waiting for conclusion
+            # Append to messages to guide the LLM to write conclusion next
+            result.append({"role": "user", "content": "Introduction written. Now write a conclusion section."})
+            return Command(goto="supervisor", update={"final_report": intro_content, "messages": result})
         
         if tool_call["name"] == "Conclusion":
-            # Compile the final report
-            all_sections = "\n\n".join([s.content for s in state["completed_sections"] + [observation]])
-            return Command(goto="supervisor", update={"final_report": all_sections, "messages": result})
+            # Format conclusion with proper H2 heading if not already formatted
+            conclusion_content = observation.content
+            if not conclusion_content.startswith("## "):
+                conclusion_content = f"## {observation.name}\n\n{conclusion_content}"
+                
+            # Get all sections and combine in proper order: Introduction, Body Sections, Conclusion
+            intro = state.get("final_report", "")
+            body_sections = "\n\n".join([s.content for s in state["completed_sections"]])
+            
+            # Assemble final report in correct order
+            complete_report = f"{intro}\n\n{body_sections}\n\n{conclusion_content}"
+            
+            # Append to messages to indicate completion
+            result.append({"role": "user", "content": "Report is now complete with introduction, body sections, and conclusion."})
+            return Command(goto="supervisor", update={"final_report": complete_report, "messages": result})
     
         else:
             return Command(goto="supervisor", update={"messages": result})
