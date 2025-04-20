@@ -27,7 +27,8 @@ dependencies = [
     "langchain-deepseek>=0.1.2",
     "python-dotenv==1.0.1",
     "langgraph_supervisor",
-    "langchain_tavily"
+    "langchain_tavily",
+    "pytest"
 ]
 
 [project.optional-dependencies]
