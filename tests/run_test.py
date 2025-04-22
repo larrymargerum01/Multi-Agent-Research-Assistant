@@ -4,6 +4,30 @@ import subprocess
 import sys
 import argparse
 
+''' 
+Example w/ o3 -- 
+python tests/run_test.py --all \
+    --supervisor-model "openai:o3" \
+    --researcher-model "openai:o3" \
+    --planner-provider "openai" \
+    --planner-model "o3" \
+    --writer-provider "openai" \
+    --writer-model "o3" \
+    --eval-model "openai:o3" \
+    --search-api "tavily"
+
+Example w/ gpt-4.1 -- 
+python tests/run_test.py --all \
+    --supervisor-model "openai:gpt-4.1" \
+    --researcher-model "openai:gpt-4.1" \
+    --planner-provider "openai" \
+    --planner-model "gpt-4.1" \
+    --writer-provider "openai" \
+    --writer-model "gpt-4.1" \
+    --eval-model "openai:o3" \
+    --search-api "tavily"
+'''
+
 def main():
     # LangSmith project name for report quality testing
     langsmith_project = "Open Deep Research: Report Quality Testing"
@@ -14,6 +38,20 @@ def main():
     parser.add_argument("--experiment-name", help="Name for the LangSmith experiment")
     parser.add_argument("--agent", choices=["multi_agent", "graph"], help="Run tests for a specific agent")
     parser.add_argument("--all", action="store_true", help="Run tests for all agents")
+    
+    # Model configuration options
+    parser.add_argument("--supervisor-model", help="Model for supervisor agent (e.g., 'anthropic:claude-3-7-sonnet-latest')")
+    parser.add_argument("--researcher-model", help="Model for researcher agent (e.g., 'anthropic:claude-3-5-sonnet-latest')")
+    parser.add_argument("--planner-provider", help="Provider for planner model (e.g., 'anthropic')")
+    parser.add_argument("--planner-model", help="Model for planner in graph-based agent (e.g., 'claude-3-7-sonnet-latest')")
+    parser.add_argument("--writer-provider", help="Provider for writer model (e.g., 'anthropic')")
+    parser.add_argument("--writer-model", help="Model for writer in graph-based agent (e.g., 'claude-3-5-sonnet-latest')")
+    parser.add_argument("--eval-model", help="Model for evaluating report quality (default: openai:gpt-4-turbo)")
+    
+    # Search API configuration
+    parser.add_argument("--search-api", choices=["tavily", "perplexity", "exa", "arxiv", "pubmed", "linkup"], 
+                        help="Search API to use for content retrieval")
+    
     args = parser.parse_args()
     
     # Base pytest options
@@ -52,8 +90,28 @@ def main():
         # Create a fresh copy of the pytest options for this run
         pytest_options = base_pytest_options.copy()
         
-        # Use environment variable to pass the agent name instead
+        # Use environment variables to pass the agent name and configurations
         os.environ["RESEARCH_AGENT"] = agent
+        
+        # Pass model configurations if provided
+        if args.supervisor_model:
+            os.environ["SUPERVISOR_MODEL"] = args.supervisor_model
+        if args.researcher_model:
+            os.environ["RESEARCHER_MODEL"] = args.researcher_model
+        if args.planner_provider:
+            os.environ["PLANNER_PROVIDER"] = args.planner_provider
+        if args.planner_model:
+            os.environ["PLANNER_MODEL"] = args.planner_model
+        if args.writer_provider:
+            os.environ["WRITER_PROVIDER"] = args.writer_provider
+        if args.writer_model:
+            os.environ["WRITER_MODEL"] = args.writer_model
+        if args.eval_model:
+            os.environ["EVAL_MODEL"] = args.eval_model
+            
+        # Pass search API if provided
+        if args.search_api:
+            os.environ["SEARCH_API"] = args.search_api
         
         # Test file path
         test_file = "tests/test_report_quality.py"

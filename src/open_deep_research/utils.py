@@ -5,7 +5,6 @@ import random
 import concurrent
 import aiohttp
 import time
-import logging
 from typing import List, Optional, Dict, Any, Union
 from urllib.parse import unquote
 

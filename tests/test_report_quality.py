@@ -21,7 +21,9 @@ class CriteriaGrade(BaseModel):
     justification: str = Field(description="The justification for the grade and score, including specific examples from the response.")
 
 # Create a global LLM for evaluation to avoid recreating it for each test
-criteria_eval_llm = init_chat_model("openai:gpt-4.1")
+# Use environment variable for the evaluation model if provided, otherwise default to gpt-4.1
+eval_model = os.environ.get("EVAL_MODEL", "openai:gpt-4-turbo")
+criteria_eval_llm = init_chat_model(eval_model)
 criteria_eval_structured_llm = criteria_eval_llm.with_structured_output(CriteriaGrade)
 
 RESPONSE_CRITERIA_SYSTEM_PROMPT = """
@@ -74,14 +76,21 @@ def test_response_criteria_evaluation():
 
         # Initial messages
         initial_msg = [{"role": "user", "content": "What is model context protocol?"}]
-        followup_msg = [{"role": "user", "content": "high-level overview of MCP, tell me about interesting specific MCP servers, developer audience, just focus on MCP."}]
+        followup_msg = [{"role": "user", "content": "high-level overview of MCP, tell me about interesting specific MCP servers, developer audience, just focus on MCP. generate the report now and don't ask any more follow-up questions."}]
 
         # Checkpointer for the multi-agent approach
         checkpointer = MemorySaver()
         graph = supervisor_builder.compile(checkpointer=checkpointer)
 
-        # Run the multi-agent with initial query and follow-up clarification
-        thread_config = {"configurable": {"thread_id": str(uuid.uuid4())}}
+        # Create configuration with custom models if provided
+        config = {
+            "thread_id": str(uuid.uuid4()),
+            "search_api": os.environ.get("SEARCH_API", "tavily"),
+            "supervisor_model": os.environ.get("SUPERVISOR_MODEL", "anthropic:claude-3-7-sonnet-latest"),
+            "researcher_model": os.environ.get("RESEARCHER_MODEL", "anthropic:claude-3-5-sonnet-latest"),
+        }
+        
+        thread_config = {"configurable": config}
 
         # Run initial question
         graph.invoke({"messages": initial_msg}, config=thread_config)
@@ -104,14 +113,14 @@ def test_response_criteria_evaluation():
         checkpointer = MemorySaver()
         graph = builder.compile(checkpointer=checkpointer)
         
-        # Configuration for the graph agent
+        # Configuration for the graph agent with environment variables
         thread = {"configurable": {
             "thread_id": str(uuid.uuid4()),
-            "search_api": "tavily",
-            "planner_provider": "openai",
-            "planner_model": "o3",
-            "writer_provider": "openai",
-            "writer_model": "o3",
+            "search_api": os.environ.get("SEARCH_API", "tavily"),
+            "planner_provider": os.environ.get("PLANNER_PROVIDER", "anthropic"),
+            "planner_model": os.environ.get("PLANNER_MODEL", "claude-3-7-sonnet-latest"),
+            "writer_provider": os.environ.get("WRITER_PROVIDER", "anthropic"),
+            "writer_model": os.environ.get("WRITER_MODEL", "claude-3-5-sonnet-latest"),
             "max_search_depth": 2,
         }}
         
