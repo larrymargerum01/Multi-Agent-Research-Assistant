@@ -180,7 +180,7 @@ def human_feedback(state: ReportState, config: RunnableConfig) -> Command[Litera
     else:
         raise TypeError(f"Interrupt value of type {type(feedback)} is not supported.")
     
-def generate_queries(state: SectionState, config: RunnableConfig):
+async def generate_queries(state: SectionState, config: RunnableConfig):
     """Generate search queries for researching a specific section.
     
     This node uses an LLM to generate targeted search queries based on the 
@@ -253,7 +253,7 @@ async def search_web(state: SectionState, config: RunnableConfig):
 
     return {"source_str": source_str, "search_iterations": state["search_iterations"] + 1}
 
-def write_section(state: SectionState, config: RunnableConfig) -> Command[Literal[END, "search_web"]]:
+async def write_section(state: SectionState, config: RunnableConfig) -> Command[Literal[END, "search_web"]]:
     """Write a section of the report and evaluate if more research is needed.
     
     This node:
@@ -341,7 +341,7 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
         goto="search_web"
         )
     
-def write_final_sections(state: SectionState, config: RunnableConfig):
+async def write_final_sections(state: SectionState, config: RunnableConfig):
     """Write sections that don't require research using completed sections as context.
     
     This node handles sections like conclusions or summaries that build on

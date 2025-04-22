@@ -92,13 +92,11 @@ def test_response_criteria_evaluation():
         
         thread_config = {"configurable": config}
 
-        # Run initial question
-        graph.invoke({"messages": initial_msg}, config=thread_config)
+        # Run the workflow with asyncio
+        asyncio.run(graph.ainvoke({"messages": initial_msg}, config=thread_config))
+        asyncio.run(graph.ainvoke({"messages": followup_msg}, config=thread_config))
         
-        # Run follow-up clarification 
-        graph.invoke({"messages": followup_msg}, config=thread_config)
-        
-        # Get the final state and extract the report
+        # Get the final state once both invocations are complete
         final_state = graph.get_state(thread_config)
         print(f"Final state values: {final_state.values}")
         report = final_state.values.get('final_report', "No report generated")

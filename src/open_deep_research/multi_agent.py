@@ -5,13 +5,13 @@ from langchain.chat_models import init_chat_model
 from langchain_core.tools import tool
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import MessagesState
-from langchain_tavily import TavilySearch
 
 from langgraph.types import Command, Send
 from langgraph.graph import START, END, StateGraph
 
 from open_deep_research.configuration import Configuration
-from open_deep_research.utils import get_config_value, select_and_execute_search
+from open_deep_research.utils import get_config_value, enhanced_tavily_search
+from open_deep_research.prompts import SUPERVISOR_INSTRUCTIONS, RESEARCH_INSTRUCTIONS
 
 ## Tools factory - will be initialized based on configuration
 def get_search_tool(config: RunnableConfig):
@@ -20,14 +20,10 @@ def get_search_tool(config: RunnableConfig):
     search_api = get_config_value(configurable.search_api)
     
     # Default to Tavily if not specified
-    # TODO: Configure multi-agent to use any of the search tools
+    # TODO: Configure multi-agent to use many search tools
     if search_api.lower() == "tavily":
-        # This is a LangChain tool 
-        return TavilySearch(
-            max_results=5,
-            topic="general",
-            include_raw_content=True
-        )
+        # Use the enhanced Tavily search with full content retrieval
+        return enhanced_tavily_search
     else:
         # Raise NotImplementedError for search APIs other than Tavily
         raise NotImplementedError(
@@ -88,112 +84,6 @@ class SectionState(MessagesState):
 class SectionOutputState(TypedDict):
     completed_sections: list[Section] # Final key we duplicate in outer state for Send() API
 
-## Supervisor
-SUPERVISOR_INSTRUCTIONS = """
-You are scoping research for a report based on a user-provided topic.
-
-### Your responsibilities:
-
-1. **Gather Background Information**  
-   Based upon the user's topic, use the `tavily_search_tool` to collect relevant information about the topic. 
-   - You MUST perform at least  1 search to gather comprehensive context
-   - Take time to analyze and synthesize the search results before proceeding
-   - Do not proceed to the next step until you have an understanding of the topic
-
-2. **Clarify the Topic**  
-   After your initial research, engage with the user to clarify any questions that arose.
-   - Ask specific follow-up questions based on what you learned from your searches
-   - Do not proceed until you fully understand the topic, goals, constraints, and any preferences
-   - Synthesize what you've learned so far before asking questions
-   - You MUST engage in at least one clarification exchange with the user before proceeding
-
-3. **Define Report Structure**  
-   Only after completing both research AND clarification with the user:
-   - Use the `Sections` tool to define a list of report sections
-   - Each section should be a written description with: a section name and a section research plan
-   - Do not include sections for introductions or conclusions (We'll add these later)
-   - Ensure sections are scoped to be independently researchable
-   - Base your sections on both the search results AND user clarifications
-
-4. **Assemble the Final Report**  
-   When all sections are returned:
-   - IMPORTANT: First check your previous messages to see what you've already completed
-   - If you haven't created an introduction yet, use the `Introduction` tool to generate one
-     - Set content to include report title with a single # (H1 level) at the beginning
-     - Example: "# [Report Title]\n\n[Introduction content...]"
-   - After the introduction, use the `Conclusion` tool to summarize key insights
-     - Set content to include conclusion title with ## (H2 level) at the beginning
-     - Example: "## Conclusion\n\n[Conclusion content...]"
-   - Do not call the same tool twice - check your message history
-
-### Additional Notes:
-- You are a reasoning model. Think through problems step-by-step before acting.
-- IMPORTANT: Do not rush to create the report structure. Gather information thoroughly first.
-- Use multiple searches to build a complete picture before drawing conclusions.
-- Maintain a clear, informative, and professional tone throughout."""
-
-RESEARCH_INSTRUCTIONS = """
-You are a researcher responsible for completing a specific section of a report.
-
-### Your goals:
-
-1. **Understand the Section Scope**  
-   Begin by reviewing the section name and description. This defines your research focus. Use it as your objective.
-
-
-<Section Description>
-{section_description}
-</Section Description>
-
-2. **Research the Topic**  
-   Use the `tavily_search_tool` to gather relevant information and evidence. Search iteratively if needed to fully understand the section's scope.
-   - Save the URLs from your searches - you will need to cite them later
-   - Aim to gather information from at least 3 different sources
-
-3. **Use the Section Tool**  
-   Once you've gathered sufficient context, write a high-quality section using the Section tool:
-   - `name`: The title of the section
-   - `description`: The scope of research you completed (brief, 1-2 sentences)
-   - `content`: The completed body of text for the section, which MUST:
-     - Begin with the section title formatted as "## [Section Title]" (H2 level with ##)
-     - Be formatted in Markdown style
-     - Be MAXIMUM 200 words (strictly enforce this limit)
-     - End with a "### Sources" subsection (H3 level with ###) containing a numbered list of URLs used
-     - Use clear, concise language with bullet points where appropriate
-     - Include relevant facts, statistics, or expert opinions
-
-Example format for content:
-```
-## [Section Title]
-
-[Body text in markdown format, maximum 200 words...]
-
-### Sources
-1. [URL 1]
-2. [URL 2]
-3. [URL 3]
-```
-
----
-
-### Reasoning Guidance
-
-You are a reasoning model. Think through the task step-by-step before writing. Break down complex questions. If you're unsure about something, search again.
-
-- You may reason internally before producing content.
-- Your job is not to summarize randomly—it's to **research and synthesize a strong, scoped contribution** to a report.
-- Always track and cite your sources.
-- Be concise - stay within the 200 word limit for the main content.
-
----
-
-### Notes:
-- Do not write introductions or conclusions unless explicitly part of your section.
-- Keep a professional, factual tone.
-- If you do not have enough information to complete the section, search again or clarify your approach before continuing.
-- Always follow markdown formatting.
-"""
-
 # Tool lists will be built dynamically based on configuration
 def get_supervisor_tools(config: RunnableConfig):
     """Get supervisor tools based on configuration"""
@@ -207,7 +97,7 @@ def get_research_tools(config: RunnableConfig):
     tool_list = [search_tool, Section]
     return tool_list, {tool.name: tool for tool in tool_list}
 
-def supervisor(state: ReportState, config: RunnableConfig):
+async def supervisor(state: ReportState, config: RunnableConfig):
     """LLM decides whether to call a tool or not"""
 
     # Messages
@@ -231,7 +121,7 @@ def supervisor(state: ReportState, config: RunnableConfig):
     # Invoke
     return {
         "messages": [
-            llm.bind_tools(supervisor_tool_list).invoke(
+            await llm.bind_tools(supervisor_tool_list).ainvoke(
                 [
                     {"role": "system",
                      "content": SUPERVISOR_INSTRUCTIONS,
@@ -242,7 +132,7 @@ def supervisor(state: ReportState, config: RunnableConfig):
         ]
     }
 
-def supervisor_tools(state: ReportState, config: RunnableConfig)  -> Command[Literal["supervisor", "research_team", "__end__"]]:
+async def supervisor_tools(state: ReportState, config: RunnableConfig)  -> Command[Literal["supervisor", "research_team", "__end__"]]:
     """Performs the tool call and sends to the research agent"""
 
     result = []
@@ -257,8 +147,11 @@ def supervisor_tools(state: ReportState, config: RunnableConfig)  -> Command[Lit
     for tool_call in state["messages"][-1].tool_calls:
         # Get the tool
         tool = supervisor_tools_by_name[tool_call["name"]]
-        # Perform the tool call
-        observation = tool.invoke(tool_call["args"])
+        # Perform the tool call - use ainvoke for async tools
+        if hasattr(tool, 'ainvoke'):
+            observation = await tool.ainvoke(tool_call["args"])
+        else:
+            observation = tool.invoke(tool_call["args"])
 
         # Append to messages 
         result.append({"role": "tool", 
@@ -306,7 +199,7 @@ def supervisor_tools(state: ReportState, config: RunnableConfig)  -> Command[Lit
         # Default case (for search tools, etc.)
         return Command(goto="supervisor", update={"messages": result})
 
-def supervisor_should_continue(state: ReportState) -> Literal["supervisor_tools", END]:
+async def supervisor_should_continue(state: ReportState) -> Literal["supervisor_tools", END]:
     """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
 
     messages = state["messages"]
@@ -320,7 +213,7 @@ def supervisor_should_continue(state: ReportState) -> Literal["supervisor_tools"
     else:
         return END
 
-def research_agent(state: SectionState, config: RunnableConfig):
+async def research_agent(state: SectionState, config: RunnableConfig):
     """LLM decides whether to call a tool or not"""
     
     # Get configuration
@@ -336,7 +229,7 @@ def research_agent(state: SectionState, config: RunnableConfig):
     return {
         "messages": [
             # Enforce tool calling to either perform more search or call the Section tool to write the section
-            llm.bind_tools(research_tool_list).invoke(
+            await llm.bind_tools(research_tool_list).ainvoke(
                 [
                     {"role": "system",
                      "content": RESEARCH_INSTRUCTIONS.format(section_description=state["section"])
@@ -347,7 +240,7 @@ def research_agent(state: SectionState, config: RunnableConfig):
         ]
     }
 
-def research_agent_tools(state: SectionState, config: RunnableConfig):
+async def research_agent_tools(state: SectionState, config: RunnableConfig):
     """Performs the tool call and route to supervisor or continue the research loop"""
 
     result = []
@@ -360,8 +253,11 @@ def research_agent_tools(state: SectionState, config: RunnableConfig):
     for tool_call in state["messages"][-1].tool_calls:
         # Get the tool
         tool = research_tools_by_name[tool_call["name"]]
-        # Perform the tool call 
-        observation = tool.invoke(tool_call["args"])
+        # Perform the tool call - use ainvoke for async tools
+        if hasattr(tool, 'ainvoke'):
+            observation = await tool.ainvoke(tool_call["args"])
+        else:
+            observation = tool.invoke(tool_call["args"])
         # Append to messages 
         result.append({"role": "tool", 
                        "content": observation, 
@@ -380,7 +276,7 @@ def research_agent_tools(state: SectionState, config: RunnableConfig):
         # Continue the research loop for search tools, etc.
         return {"messages": result}
 
-def research_agent_should_continue(state: SectionState) -> Literal["research_agent_tools", END]:
+async def research_agent_should_continue(state: SectionState) -> Literal["research_agent_tools", END]:
     """Decide if we should continue the loop or stop based upon whether the LLM made a tool call"""
 
     messages = state["messages"]
