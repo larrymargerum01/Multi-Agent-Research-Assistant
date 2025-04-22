@@ -114,7 +114,7 @@ Launch the assistant with the LangGraph server locally, which will open in your 
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install dependencies and start the LangGraph server
-uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev
+uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev --allow-blocking
 ```
 
 #### Windows / Linux

@@ -73,11 +73,33 @@ def main():
         
         result = subprocess.run(cmd, capture_output=True, text=True)
         
-        # Print test output
-        print(result.stdout)
+        # Print test output with highlighting for section relevance analysis
+        stdout = result.stdout
+        
+        # Highlight section relevance information with colors if supported
+        if "POTENTIAL IRRELEVANT SECTIONS DETECTED" in stdout:
+            # Extract and highlight the section relevance analysis
+            import re
+            section_analysis = re.search(r'⚠️ POTENTIAL IRRELEVANT SECTIONS DETECTED:.*?(?=\n\n|\Z)', 
+                                         stdout, re.DOTALL)
+            if section_analysis:
+                analysis_text = section_analysis.group(0)
+                # Use ANSI color codes for highlighting (red for irrelevant sections)
+                highlighted_analysis = f"\033[1;31m{analysis_text}\033[0m"
+                stdout = stdout.replace(analysis_text, highlighted_analysis)
+        
+        print(stdout)
+        
         if result.stderr:
             print("Errors/warnings:")
             print(result.stderr)
+            
+        # Print a summary of section relevance issues
+        if "POTENTIAL IRRELEVANT SECTIONS DETECTED" in result.stdout:
+            print("\n\033[1;33m==== SECTION RELEVANCE ISSUES DETECTED ====\033[0m")
+            print("Some sections may not be relevant to the main topic.")
+            print("Review the detailed analysis in the test output above.")
+            print("Consider updating the prompts to improve section relevance.")
                 
 if __name__ == "__main__":
     sys.exit(main() or 0)

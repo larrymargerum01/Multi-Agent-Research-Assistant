@@ -55,13 +55,15 @@ Each section should have the fields:
 
 - Name - Name for this section of the report.
 - Description - Brief overview of the main topics covered in this section.
-- Research - Whether to perform web research for this section of the report.
+- Research - Whether to perform web research for this section of the report. IMPORTANT: Main body sections (not intro/conclusion) MUST have Research=True. A report must have AT LEAST 2-3 sections with Research=True to be useful.
 - Content - The content of the section, which you will leave blank for now.
 
 Integration guidelines:
 - Include examples and implementation details within main topic sections, not as separate sections
 - Ensure each section has a distinct purpose with no content overlap
 - Combine related concepts rather than separating them
+- CRITICAL: Every section MUST be directly relevant to the main topic
+- Avoid tangential or loosely related sections that don't directly address the core topic
 
 Before submitting, review your structure to ensure it has no redundant sections and follows a logical flow.
 </Task>

@@ -11,13 +11,14 @@ from langgraph.graph import START, END, StateGraph
 
 ## LLM 
 llm = init_chat_model(
-    model="openai:o3-mini"
+    model="openai:o3"
 )
 
 ## Tools 
 tavily_search_tool = TavilySearch(
     max_results=5,
     topic="general",
+    include_raw_content=True
 )
 
 @tool

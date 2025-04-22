@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 
-import uuid
-import asyncio
-import importlib
-import sys
 import os
+import uuid
 import pytest
-from typing import Dict, List, Any, Tuple
+import asyncio
 from pydantic import BaseModel, Field
 from langchain.chat_models import init_chat_model
 from langsmith import testing as t
@@ -24,21 +21,38 @@ class CriteriaGrade(BaseModel):
     justification: str = Field(description="The justification for the grade and score, including specific examples from the response.")
 
 # Create a global LLM for evaluation to avoid recreating it for each test
-criteria_eval_llm = init_chat_model("openai:gpt-4o")
+criteria_eval_llm = init_chat_model("openai:gpt-4.1")
 criteria_eval_structured_llm = criteria_eval_llm.with_structured_output(CriteriaGrade)
 
 RESPONSE_CRITERIA_SYSTEM_PROMPT = """
-You are evaluating the quality of a research report. Please assess the report against the following criteria:
+You are evaluating the quality of a research report. Please assess the report against the following criteria, being especially strict about section relevance.
 
-1. Topic Relevance: Does the report directly address the user's input topic thoroughly?
-2. Structure and Flow: Do the sections flow logically from one to the next, creating a cohesive narrative?
-3. Introduction Quality: Does the introduction effectively provide context and set up the scope of the report?
-4. Conclusion Quality: Does the conclusion meaningfully summarize key findings and insights from the report?
-5. Section Headers: Are section headers properly formatted with Markdown (# for title, ## for sections, ### for subsections)?
-6. Citations: Does the report properly cite sources?
-7. Overall Quality: Is the report well-researched, accurate, and professionally written?
+1. Topic Relevance (Overall): Does the report directly address the user's input topic thoroughly?
 
-Provide specific examples from the report to justify your evaluation for each criterion.
+2. Section Relevance (Critical): CAREFULLY assess each individual section for relevance to the main topic:
+   - Identify each section by its ## header
+   - For each section, determine if it is directly relevant to the primary topic
+   - Flag any sections that seem tangential, off-topic, or only loosely connected to the main topic
+   - A high-quality report should have NO irrelevant sections
+
+3. Structure and Flow: Do the sections flow logically from one to the next, creating a cohesive narrative?
+
+4. Introduction Quality: Does the introduction effectively provide context and set up the scope of the report?
+
+5. Conclusion Quality: Does the conclusion meaningfully summarize key findings and insights from the report?
+
+6. Section Headers: Are section headers properly formatted with Markdown (# for title, ## for sections, ### for subsections)?
+
+7. Citations: Does the report properly cite sources?
+
+8. Overall Quality: Is the report well-researched, accurate, and professionally written?
+
+Evaluation Instructions:
+- Be STRICT about section relevance - ALL sections must clearly connect to the primary topic
+- A report with even ONE irrelevant section should be considered flawed
+- You must individually mention each section by name and assess its relevance
+- Provide specific examples from the report to justify your evaluation for each criterion
+- The report fails if any sections are irrelevant to the main topic, regardless of other qualities
 """ 
 
 @pytest.mark.langsmith
@@ -95,9 +109,9 @@ def test_response_criteria_evaluation():
             "thread_id": str(uuid.uuid4()),
             "search_api": "tavily",
             "planner_provider": "openai",
-            "planner_model": "o3-mini",
+            "planner_model": "o3",
             "writer_provider": "openai",
-            "writer_model": "o3-mini",
+            "writer_model": "o3",
             "max_search_depth": 2,
         }}
         
@@ -124,16 +138,23 @@ def test_response_criteria_evaluation():
         {"role": "user", "content": f"""\n\n Report: \n\n{report}\n\nEvaluate whether the report meets the criteria and provide detailed justification for your evaluation."""}
     ])
 
+    # Extract section headers for analysis
+    import re
+    section_headers = re.findall(r'##\s+([^\n]+)', report)
+    
     # Print the evaluation results
     print(f"Evaluation result: {'PASSED' if eval_result.grade else 'FAILED'}")
+    print(f"Report contains {len(section_headers)} sections: {', '.join(section_headers)}")
     print(f"Justification: {eval_result.justification}")
-        
+    
     # Log outputs to LangSmith
     t.log_outputs({
         "report": report,
         "evaluation_result": eval_result.grade,
         "justification": eval_result.justification,
-        "report_length": len(report)
+        "report_length": len(report),
+        "section_count": len(section_headers),
+        "section_headers": section_headers,
     })
     
     # Test passes if the evaluation criteria are met
