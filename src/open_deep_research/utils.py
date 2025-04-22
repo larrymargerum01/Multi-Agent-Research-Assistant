@@ -23,22 +23,19 @@ from langchain_core.tools import tool
 from langsmith import traceable
 
 from open_deep_research.state import Section
-
-
+    
 @tool
-async def enhanced_tavily_search(queries: list) -> str:
+async def enhanced_tavily_search(queries: List[str]) -> str:
     """
     Enhanced Tavily search tool that fetches search results and retrieves the full content of each result,
-    converting them to markdown format. This is decorated as a LangChain tool for use in the multi-agent 
-    researcher as well as the researcher workflow.
+    converting them to markdown format.
     
     Args:
-        queries (list): The search queries to use
+        queries (List[str]): List of search queries to use
         
     Returns:
         str: A formatted string containing the full content of each search result in markdown format
     """
-    
     # Use the existing tavily_search_async function
     search_results = await tavily_search_async(queries)
     
@@ -84,16 +81,16 @@ async def enhanced_tavily_search(queries: list) -> str:
                 # Handle any exceptions during fetch
                 pages.append(f"Error fetching URL: {str(e)}")
         
-        # Create formatted output with URL headers
-        formatted_output = f"Search results:'\n\n"
+        # Create formatted output 
+        formatted_output = f"Search results: \n\n"
         
         for i, (title, url, page) in enumerate(zip(titles, urls, pages)):
             formatted_output += f"\n\n--- SOURCE {i+1}: {title} ---\n"
-            formatted_output += f"URL: {url}\n\n"            
-            formatted_output += f"FULL CONTENT: {page}\n"               
+            formatted_output += f"URL: {url}\n\n"
+            formatted_output += f"FULL CONTENT:\n {page}"
             formatted_output += "\n\n" + "-" * 80 + "\n"
         
-        return formatted_output
+    return  formatted_output
     
 def get_config_value(value):
     """
@@ -1219,8 +1216,8 @@ async def select_and_execute_search(search_api: str, query_list: list[str], para
         ValueError: If an unsupported search API is specified
     """
     if search_api == "tavily":
-        result = await enhanced_tavily_search(query_list)
-        return result
+        # Tavily search tool used with both workflow and agent 
+        return await enhanced_tavily_search.ainvoke({'queries': query_list})
     elif search_api == "perplexity":
         search_results = perplexity_search(query_list, **params_to_pass)
         return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
