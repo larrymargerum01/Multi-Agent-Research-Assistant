@@ -280,6 +280,7 @@ You are scoping research for a report based on a user-provided topic.
    - Do not include sections for introductions or conclusions (We'll add these later)
    - Ensure sections are scoped to be independently researchable
    - Base your sections on both the search results AND user clarifications
+   - Format your sections as a list of strings, with each string having the scope of research for that section.
 
 4. **Assemble the Final Report**  
    When all sections are returned:
