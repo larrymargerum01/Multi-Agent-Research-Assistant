@@ -4,8 +4,8 @@ import requests
 import random 
 import concurrent
 import aiohttp
+import httpx
 import time
-import logging
 from typing import List, Optional, Dict, Any, Union
 from urllib.parse import unquote
 
@@ -14,14 +14,84 @@ from linkup import LinkupClient
 from tavily import AsyncTavilyClient
 from duckduckgo_search import DDGS 
 from bs4 import BeautifulSoup
+from markdownify import markdownify
 
 from langchain_community.retrievers import ArxivRetriever
 from langchain_community.utilities.pubmed import PubMedAPIWrapper
+from langchain_core.tools import tool
+
 from langsmith import traceable
 
 from open_deep_research.state import Section
-
-
+    
+@tool
+async def enhanced_tavily_search(queries: List[str]) -> str:
+    """
+    Enhanced Tavily search tool that fetches search results and retrieves the full content of each result,
+    converting them to markdown format.
+    
+    Args:
+        queries (List[str]): List of search queries to use
+        
+    Returns:
+        str: A formatted string containing the full content of each search result in markdown format
+    """
+    # Use the existing tavily_search_async function
+    search_results = await tavily_search_async(queries)
+    
+    # Extract unique URLs and titles from the results
+    urls = []
+    titles = []
+    
+    # Process all results from all queries
+    for response in search_results:
+        for result in response['results']:
+            url = result['url']
+            # Only add if this URL isn't already in our list (deduplication)
+            if url not in urls:
+                urls.append(url)
+                titles.append(result['title'])
+    
+    # Create an async HTTP client
+    async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+        pages = []
+        
+        # Fetch each URL and convert to markdown
+        for url in urls:
+            try:
+                # Fetch the content
+                response = await client.get(url)
+                response.raise_for_status()
+                
+                # Convert HTML to markdown if successful
+                if response.status_code == 200:
+                    # Handle different content types
+                    content_type = response.headers.get('Content-Type', '')
+                    if 'text/html' in content_type:
+                        # Convert HTML to markdown
+                        markdown_content = markdownify(response.text)
+                        pages.append(markdown_content)
+                    else:
+                        # For non-HTML content, just mention the content type
+                        pages.append(f"Content type: {content_type} (not converted to markdown)")
+                else:
+                    pages.append(f"Error: Received status code {response.status_code}")
+        
+            except Exception as e:
+                # Handle any exceptions during fetch
+                pages.append(f"Error fetching URL: {str(e)}")
+        
+        # Create formatted output 
+        formatted_output = f"Search results: \n\n"
+        
+        for i, (title, url, page) in enumerate(zip(titles, urls, pages)):
+            formatted_output += f"\n\n--- SOURCE {i+1}: {title} ---\n"
+            formatted_output += f"URL: {url}\n\n"
+            formatted_output += f"FULL CONTENT:\n {page}"
+            formatted_output += "\n\n" + "-" * 80 + "\n"
+        
+    return  formatted_output
+    
 def get_config_value(value):
     """
     Helper function to handle string, dict, and enum cases of configuration values
@@ -135,7 +205,7 @@ Content:
     return formatted_str
 
 @traceable
-async def tavily_search_async(search_queries):
+async def tavily_search_async(search_queries, include_raw_content=True):
     """
     Performs concurrent web searches using the Tavily API.
 
@@ -168,7 +238,7 @@ async def tavily_search_async(search_queries):
                 tavily_async_client.search(
                     query,
                     max_results=5,
-                    include_raw_content=True,
+                    include_raw_content=include_raw_content,
                     topic="general"
                 )
             )
@@ -1131,8 +1201,6 @@ async def google_search_async(search_queries: Union[str, List[str]], max_results
         if executor:
             executor.shutdown(wait=False)
 
-
-
 async def select_and_execute_search(search_api: str, query_list: list[str], params_to_pass: dict) -> str:
     """Select and execute the appropriate search API.
     
@@ -1148,8 +1216,8 @@ async def select_and_execute_search(search_api: str, query_list: list[str], para
         ValueError: If an unsupported search API is specified
     """
     if search_api == "tavily":
-        search_results = await tavily_search_async(query_list, **params_to_pass)
-        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000, include_raw_content=False)
+        # Tavily search tool used with both workflow and agent 
+        return await enhanced_tavily_search.ainvoke({'queries': query_list})
     elif search_api == "perplexity":
         search_results = perplexity_search(query_list, **params_to_pass)
         return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)

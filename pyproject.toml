@@ -26,6 +26,11 @@ dependencies = [
     "beautifulsoup4==4.13.3",
     "langchain-deepseek>=0.1.2",
     "python-dotenv==1.0.1",
+    "langgraph_supervisor",
+    "langchain_tavily",
+    "pytest",
+    "httpx>=0.24.0",
+    "markdownify>=0.11.6"
 ]
 
 [project.optional-dependencies]

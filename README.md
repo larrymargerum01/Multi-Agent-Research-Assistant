@@ -1,6 +1,6 @@
 # Open Deep Research
- 
-Open Deep Research is an open source assistant that automates research and produces customizable reports on any topic. It allows you to customize the research and writing process with specific models, prompts, report structure, and search tools. 
+
+Open Deep Research is an experimental, fully open-source research assistant that automates deep research and produces comprehensive reports on any topic. It features two implementations - a workflow-based approach and a multi-agent architecture - each with distinct advantages for different use cases. You can customize the entire research and writing process with specific models, prompts, report structure, and search tools.
 
 ![report-generation](https://github.com/user-attachments/assets/6595d5cd-c981-43ec-8e8b-209e4fefc596)
 
@@ -19,7 +19,7 @@ Available search tools:
 * [DuckDuckGo API](https://duckduckgo.com/) - General web search
 * [Google Search API/Scrapper](https://google.com/) - Create custom search engine [here](https://programmablesearchengine.google.com/controlpanel/all) and get API key [here](https://developers.google.com/custom-search/v1/introduction)
 
-Open Deep Research uses a planner LLM for report planning and a writer LLM for report writing: 
+Open Deep Research is compatible with many different LLMs: 
 
 * You can select any model that is integrated [with the `init_chat_model()` API](https://python.langchain.com/docs/how_to/chat_models_universal_init/)
 * See full list of supported integrations [here](https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html)
@@ -89,23 +89,7 @@ Then edit the `.env` file to customize the environment variables according to yo
 cp .env.example .env
 ```
 
-Set whatever APIs needed for your model and search tools.
-
-Here are examples for several of the model and tool integrations available:
-```bash
-export TAVILY_API_KEY=<your_tavily_api_key>
-export ANTHROPIC_API_KEY=<your_anthropic_api_key>
-export OPENAI_API_KEY=<your_openai_api_key>
-export PERPLEXITY_API_KEY=<your_perplexity_api_key>
-export EXA_API_KEY=<your_exa_api_key>
-export PUBMED_API_KEY=<your_pubmed_api_key>
-export PUBMED_EMAIL=<your_email@example.com>
-export LINKUP_API_KEY=<your_linkup_api_key>
-export GOOGLE_API_KEY=<your_google_api_key>
-export GOOGLE_CX=<your_google_custom_search_engine_id>
-```
-
-Launch the assistant with the LangGraph server locally, which will open in your browser:
+Set whatever APIs needed for your model and search tools. Launch the assistant with the LangGraph server locally, which will open in your browser:
 
 #### Mac
 
@@ -114,7 +98,7 @@ Launch the assistant with the LangGraph server locally, which will open in your 
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install dependencies and start the LangGraph server
-uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev
+uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev --allow-blocking
 ```
 
 #### Windows / Linux
@@ -215,13 +199,69 @@ thread = {"configurable": {"thread_id": str(uuid.uuid4()),
 groq.APIError: Failed to call a function. Please adjust your prompt. See 'failed_generation' for more details.
 ```
 
-## How it works
-   
-1. `Plan and Execute` - Open Deep Research follows a [plan-and-execute workflow](https://github.com/assafelovic/gpt-researcher) that separates planning from research, allowing for human-in-the-loop approval of a report plan before the more time-consuming research phase. It uses, by default, a [reasoning model](https://www.youtube.com/watch?v=f0RbwrBcFmc) to plan the report sections. During this phase, it uses web search to gather general information about the report topic to help in planning the report sections. But, it also accepts a report structure from the user to help guide the report sections as well as human feedback on the report plan.
-   
-2. `Research and Write` - Each section of the report is written in parallel. The research assistant uses web search via [Tavily API](https://tavily.com/), [Perplexity](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api), [Exa](https://exa.ai/), [ArXiv](https://arxiv.org/), [PubMed](https://pubmed.ncbi.nlm.nih.gov/) or [Linkup](https://www.linkup.so/) to gather information about each section topic. It will reflect on each report section and suggest follow-up questions for web search. This "depth" of research will proceed for any many iterations as the user wants. Any final sections, such as introductions and conclusions, are written after the main body of the report is written, which helps ensure that the report is cohesive and coherent. The planner determines main body versus final sections during the planning phase.
+## Open Deep Research Implementations
 
-3. `Managing different types` - Open Deep Research is built on LangGraph, which has native support for configuration management [using assistants](https://langchain-ai.github.io/langgraph/concepts/assistants/). The report `structure` is a field in the graph configuration, which allows users to create different assistants for different types of reports. 
+Open Deep Research features two distinct implementation approaches, each with its own strengths:
+
+## 1. Graph-based Workflow Implementation (`src/open_deep_research/graph.py`)
+
+The graph-based implementation follows a structured plan-and-execute workflow:
+
+- **Planning Phase**: Uses a planner model to analyze the topic and generate a structured report plan
+- **Human-in-the-Loop**: Allows for human feedback and approval of the report plan before proceeding
+- **Sequential Research Process**: Creates sections one by one with reflection between search iterations
+- **Section-Specific Research**: Each section has dedicated search queries and content retrieval
+- **Supports Multiple Search Tools**: Works with all search providers (Tavily, Perplexity, Exa, ArXiv, PubMed, Linkup, etc.)
+
+This implementation provides a more interactive experience with greater control over the report structure, making it ideal for situations where report quality and accuracy are critical.
+
+## 2. Multi-Agent Implementation (`src/open_deep_research/multi_agent.py`)
+
+The multi-agent implementation uses a supervisor-researcher architecture:
+
+- **Supervisor Agent**: Manages the overall research process, plans sections, and assembles the final report
+- **Researcher Agents**: Multiple independent agents work in parallel, each responsible for researching and writing a specific section
+- **Parallel Processing**: All sections are researched simultaneously, significantly reducing report generation time
+- **Specialized Tool Design**: Each agent has access to specific tools for its role (search for researchers, section planning for supervisors)
+- **Currently Limited to Tavily Search**: The multi-agent implementation currently only works with Tavily for search, though the framework is designed to support additional search tools in the future
+
+This implementation focuses on efficiency and parallelization, making it ideal for faster report generation with less direct user involvement.
+
+### Future Development
+
+We plan to extend the multi-agent implementation to support additional search tools beyond Tavily. The current placeholder in the code:
+
+```python
+else:
+    # This is a placeholder tool that will be replaced in execution
+    return TavilySearch(
+        max_results=5,
+        topic="general",
+        include_raw_content=True
+    )
+```
+
+## Testing Report Quality
+
+To compare the quality of reports generated by both implementations:
+
+```bash
+# Test with default Anthropic models
+python tests/run_test.py --all
+
+# Test with OpenAI o3 models
+python tests/run_test.py --all \
+  --supervisor-model "openai:o3" \
+  --researcher-model "openai:o3" \
+  --planner-provider "openai" \
+  --planner-model "o3" \
+  --writer-provider "openai" \
+  --writer-model "o3" \
+  --eval-model "openai:o3" \
+  --search-api "tavily"
+```
+
+The test results will be logged to LangSmith, allowing you to compare the quality of reports generated by each implementation with different model configurations.
 
 ## UX
 
