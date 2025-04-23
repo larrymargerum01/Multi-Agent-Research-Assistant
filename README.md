@@ -2,14 +2,15 @@
 
 Open Deep Research is an experimental, fully open-source research assistant that automates deep research and produces comprehensive reports on any topic. It features two implementations - a [workflow](https://langchain-ai.github.io/langgraph/tutorials/workflows/) and a multi-agent architecture - each with distinct advantages. You can customize the entire research and writing process with specific models, prompts, report structure, and search tools.
 
-Workflow:
+#### Workflow
 
 ![open-deep-research-overview](https://github.com/user-attachments/assets/a171660d-b735-4587-ab2f-cd771f773756)
 
-Multi-agent:
+####  Multi-agent
+
 ![multi-agent-researcher](https://github.com/user-attachments/assets/3c734c3c-57aa-4bc0-85dd-74e2ec2c0880)
 
-## 🚀 Quickstart
+### 🚀 Quickstart
 
 Ensure you have API keys set for your desired search tools and models.
 
