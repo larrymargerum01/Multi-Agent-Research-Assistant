@@ -177,7 +177,6 @@ async def tavily_search_async(search_queries, include_raw_content=True):
 
     # Execute all searches concurrently
     search_docs = await asyncio.gather(*search_tasks)
-
     return search_docs
 
 @traceable
@@ -1262,38 +1261,42 @@ async def duckduckgo_search(search_queries: List[str]):
         return "No valid search results found. Please try different search queries or use a different search API."
 
 @tool
-async def enhanced_tavily_search(queries: List[str]) -> str:
+async def tavily_search(queries: List[str]) -> str:
     """
-    Enhanced Tavily search tool that fetches search results and retrieves the full content of each result,
-    converting them to markdown format.
+    Enhanced Tavily search tool that fetches search results and uses their raw content directly.
     
     Args:
         queries (List[str]): List of search queries to use
         
     Returns:
-        str: A formatted string containing the full content of each search result in markdown format
+        str: A formatted string containing the content of each search result
     """
-    # Use the existing tavily_search_async function
-    search_results = await tavily_search_async(queries)
+    # Use tavily_search_async with include_raw_content=True to get content directly
+    search_results = await tavily_search_async(queries, include_raw_content=True)
     
-    # Extract unique URLs and titles from the results
-    urls = []
-    titles = []
+    # Format the search results directly using the raw_content already provided
+    formatted_output = f"Search results: \n\n"
     
-    # Process all results from all queries
+    # Deduplicate results by URL
+    unique_results = {}
     for response in search_results:
         for result in response['results']:
             url = result['url']
-            # Only add if this URL isn't already in our list (deduplication)
-            if url not in urls:
-                urls.append(url)
-                titles.append(result['title'])
+            if url not in unique_results:
+                unique_results[url] = result
     
-    # If we got any valid URLs, scrape the pages
-    if urls:
-        return await scrape_pages(titles, urls)
+    # Format the unique results
+    for i, (url, result) in enumerate(unique_results.items()):
+        formatted_output += f"\n\n--- SOURCE {i+1}: {result['title']} ---\n"
+        formatted_output += f"URL: {url}\n\n"
+        formatted_output += f"SUMMARY:\n{result['content']}\n\n"
+        if result.get('raw_content'):
+            formatted_output += f"FULL CONTENT:\n{result['raw_content'][:30000]}"  # Limit content size
+        formatted_output += "\n\n" + "-" * 80 + "\n"
+    
+    if unique_results:
+        return formatted_output
     else:
-        # Return a formatted error message if no valid URLs were found
         return "No valid search results found. Please try different search queries or use a different search API."
 
 async def select_and_execute_search(search_api: str, query_list: list[str], params_to_pass: dict) -> str:
@@ -1312,7 +1315,7 @@ async def select_and_execute_search(search_api: str, query_list: list[str], para
     """
     if search_api == "tavily":
         # Tavily search tool used with both workflow and agent 
-        return await enhanced_tavily_search.ainvoke({'queries': query_list})
+        return await tavily_search.ainvoke({'queries': query_list})
     elif search_api == "duckduckgo":
         # DuckDuckGo search tool used with both workflow and agent 
         return await duckduckgo_search.ainvoke({'search_queries': query_list})

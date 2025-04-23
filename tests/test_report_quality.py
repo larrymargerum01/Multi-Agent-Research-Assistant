@@ -55,11 +55,13 @@ You are evaluating the quality of a research report. Please assess the report ag
 
 5. Conclusion Quality: Does the conclusion meaningfully summarize key findings and insights from the report?
 
-6. Section Headers: Are section headers properly formatted with Markdown (# for title, ## for sections, ### for subsections)?
+6. Structural Elements: Does the report use structural elements (e.g., tables, lists) to effectively convey information?
 
-7. Citations: Does the report properly cite sources?
+7. Section Headers: Are section headers properly formatted with Markdown (# for title, ## for sections, ### for subsections)?
 
-8. Overall Quality: Is the report well-researched, accurate, and professionally written?
+8. Citations: Does the report properly cite sources in each main body section?
+
+9. Overall Quality: Is the report well-researched, accurate, and professionally written?
 
 Evaluation Instructions:
 - Be STRICT about section relevance - ALL sections must clearly connect to the primary topic

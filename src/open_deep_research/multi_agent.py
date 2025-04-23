@@ -10,7 +10,7 @@ from langgraph.types import Command, Send
 from langgraph.graph import START, END, StateGraph
 
 from open_deep_research.configuration import Configuration
-from open_deep_research.utils import get_config_value, enhanced_tavily_search, duckduckgo_search
+from open_deep_research.utils import get_config_value, tavily_search, duckduckgo_search
 from open_deep_research.prompts import SUPERVISOR_INSTRUCTIONS, RESEARCH_INSTRUCTIONS
 
 ## Tools factory - will be initialized based on configuration
@@ -22,7 +22,7 @@ def get_search_tool(config: RunnableConfig):
     # TODO: Configure other search functions as tools
     if search_api.lower() == "tavily":
         # Use Tavily search tool
-        return enhanced_tavily_search
+        return tavily_search
     elif search_api.lower() == "duckduckgo":
         # Use the DuckDuckGo search tool
         return duckduckgo_search
@@ -310,7 +310,7 @@ research_builder.add_conditional_edges(
 research_builder.add_edge("research_agent_tools", "research_agent")
 
 # Supervisor workflow
-supervisor_builder = StateGraph(ReportState, input=MessagesState, output=ReportStateOutput)
+supervisor_builder = StateGraph(ReportState, input=MessagesState, output=ReportStateOutput, config_schema=Configuration)
 supervisor_builder.add_node("supervisor", supervisor)
 supervisor_builder.add_node("supervisor_tools", supervisor_tools)
 supervisor_builder.add_node("research_team", research_builder.compile())
@@ -327,3 +327,5 @@ supervisor_builder.add_conditional_edges(
     },
 )
 supervisor_builder.add_edge("research_team", "supervisor")
+
+graph = supervisor_builder.compile()

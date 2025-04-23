@@ -262,7 +262,8 @@ You are scoping research for a report based on a user-provided topic.
 
 1. **Gather Background Information**  
    Based upon the user's topic, use the `enhanced_tavily_search` to collect relevant information about the topic. 
-   - You MUST perform at least  1 search to gather comprehensive context
+   - You MUST perform ONLY ONE search to gather comprehensive context
+   - Create a highly targeted search query that will yield the most valuable information
    - Take time to analyze and synthesize the search results before proceeding
    - Do not proceed to the next step until you have an understanding of the topic
 
@@ -291,6 +292,12 @@ You are scoping research for a report based on a user-provided topic.
    - After the introduction, use the `Conclusion` tool to summarize key insights
      - Set content to include conclusion title with ## (H2 level) at the beginning
      - Example: "## Conclusion\n\n[Conclusion content...]"
+     - Only use ONE structural element IF it helps distill the points made in the report:
+     - Either a focused table comparing items present in the report (using Markdown table syntax)
+     - Or a short list using proper Markdown list syntax:
+      - Use `*` or `-` for unordered lists
+      - Use `1.` for ordered lists
+      - Ensure proper indentation and spacing
    - Do not call the same tool twice - check your message history
 
 ### Additional Notes:
