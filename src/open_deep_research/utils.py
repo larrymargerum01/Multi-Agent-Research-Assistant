@@ -139,15 +139,15 @@ Content:
 @traceable
 async def tavily_search_async(search_queries, include_raw_content=True):
     """
-    Performs concurrent web searches using the Tavily API.
+    Performs concurrent web searches with the Tavily API
 
     Args:
-        search_queries (List[SearchQuery]): List of search queries to process
+        search_queries (List[str]): List of search queries to process
 
     Returns:
-            List[dict]: List of search responses from Tavily API, one per query. Each response has format:
+            List[dict]: List of search responses from Tavily API:
                 {
-                    'query': str, # The original search query
+                    'query': str,
                     'follow_up_questions': None,      
                     'answer': None,
                     'images': list,
@@ -1263,13 +1263,13 @@ async def duckduckgo_search(search_queries: List[str]):
 @tool
 async def tavily_search(queries: List[str]) -> str:
     """
-    Enhanced Tavily search tool that fetches search results and uses their raw content directly.
+    Fetches results from Tavily search API.
     
     Args:
-        queries (List[str]): List of search queries to use
+        queries (List[str]): List of search queries
         
     Returns:
-        str: A formatted string containing the content of each search result
+        str: A formatted string of search results
     """
     # Use tavily_search_async with include_raw_content=True to get content directly
     search_results = await tavily_search_async(queries, include_raw_content=True)
