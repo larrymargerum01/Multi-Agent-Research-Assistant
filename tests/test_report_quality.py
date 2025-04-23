@@ -20,11 +20,23 @@ class CriteriaGrade(BaseModel):
     grade: bool = Field(description="Does the response meet the provided criteria?")
     justification: str = Field(description="The justification for the grade and score, including specific examples from the response.")
 
-# Create a global LLM for evaluation to avoid recreating it for each test
-# Use environment variable for the evaluation model if provided, otherwise default to gpt-4.1
-eval_model = os.environ.get("EVAL_MODEL", "openai:gpt-4-turbo")
-criteria_eval_llm = init_chat_model(eval_model)
-criteria_eval_structured_llm = criteria_eval_llm.with_structured_output(CriteriaGrade)
+# Function to create evaluation LLM at test time
+def get_evaluation_llm(eval_model=None):
+    """Create and return an evaluation LLM.
+    
+    Args:
+        eval_model: Model identifier to use for evaluation
+                    Format: "provider:model_name" (e.g., "openai:gpt-4-turbo")
+                    If None, it will use environment variable or default
+    
+    Returns:
+        Structured LLM for generating evaluation grades
+    """
+    # Use provided model, then environment variable, then default
+    model_to_use = eval_model or os.environ.get("EVAL_MODEL", "openai:gpt-4-turbo")
+    
+    criteria_eval_llm = init_chat_model(model_to_use)
+    return criteria_eval_llm.with_structured_output(CriteriaGrade)
 
 RESPONSE_CRITERIA_SYSTEM_PROMPT = """
 You are evaluating the quality of a research report. Please assess the report against the following criteria, being especially strict about section relevance.
@@ -57,18 +69,78 @@ Evaluation Instructions:
 - The report fails if any sections are irrelevant to the main topic, regardless of other qualities
 """ 
 
+# Define fixtures for test configuration
+@pytest.fixture
+def research_agent(request):
+    """Get the research agent type from command line or environment variable."""
+    return request.config.getoption("--research-agent") or os.environ.get("RESEARCH_AGENT", "multi_agent")
+
+@pytest.fixture
+def search_api(request):
+    """Get the search API from command line or environment variable."""
+    return request.config.getoption("--search-api") or os.environ.get("SEARCH_API", "tavily")
+
+@pytest.fixture
+def eval_model(request):
+    """Get the evaluation model from command line or environment variable."""
+    return request.config.getoption("--eval-model") or os.environ.get("EVAL_MODEL", "openai:gpt-4-turbo")
+
+@pytest.fixture
+def models(request, research_agent):
+    """Get model configurations based on agent type."""
+    if research_agent == "multi_agent":
+        return {
+            "supervisor_model": (
+                request.config.getoption("--supervisor-model") or 
+                os.environ.get("SUPERVISOR_MODEL", "anthropic:claude-3-7-sonnet-latest")
+            ),
+            "researcher_model": (
+                request.config.getoption("--researcher-model") or 
+                os.environ.get("RESEARCHER_MODEL", "anthropic:claude-3-5-sonnet-latest")
+            ),
+        }
+    else:  # graph agent
+        return {
+            "planner_provider": (
+                request.config.getoption("--planner-provider") or 
+                os.environ.get("PLANNER_PROVIDER", "anthropic")
+            ),
+            "planner_model": (
+                request.config.getoption("--planner-model") or 
+                os.environ.get("PLANNER_MODEL", "claude-3-7-sonnet-latest")
+            ),
+            "writer_provider": (
+                request.config.getoption("--writer-provider") or 
+                os.environ.get("WRITER_PROVIDER", "anthropic")
+            ),
+            "writer_model": (
+                request.config.getoption("--writer-model") or 
+                os.environ.get("WRITER_MODEL", "claude-3-5-sonnet-latest")
+            ),
+            "max_search_depth": int(
+                request.config.getoption("--max-search-depth") or 
+                os.environ.get("MAX_SEARCH_DEPTH", "2")
+            ),
+        }
+
+# Note: Command line options are defined in conftest.py
+# These fixtures still work with options defined there
+
 @pytest.mark.langsmith
-def test_response_criteria_evaluation():
+def test_response_criteria_evaluation(research_agent, search_api, models, eval_model):
     """Test if a report meets the specified quality criteria."""
-    # Get agent type from environment variable
-    research_agent = os.environ.get("RESEARCH_AGENT", "multi_agent")
-    print(f"Testing {research_agent} report generation...")
+    print(f"Testing {research_agent} report generation with {search_api} search...")
+    print(f"Models: {models}")
+    print(f"Eval model: {eval_model}")
     
     # Log inputs to LangSmith
     t.log_inputs({
         "agent_type": research_agent, 
+        "search_api": search_api,
+        "models": models,
+        "eval_model": eval_model,
         "test": "report_quality_evaluation",
-        "description": f"Testing report quality for {research_agent}"
+        "description": f"Testing report quality for {research_agent} with {search_api}"
     })
  
     # Run the appropriate agent based on the parameter
@@ -82,12 +154,12 @@ def test_response_criteria_evaluation():
         checkpointer = MemorySaver()
         graph = supervisor_builder.compile(checkpointer=checkpointer)
 
-        # Create configuration with custom models if provided
+        # Create configuration with the provided parameters
         config = {
             "thread_id": str(uuid.uuid4()),
-            "search_api": os.environ.get("SEARCH_API", "tavily"),
-            "supervisor_model": os.environ.get("SUPERVISOR_MODEL", "anthropic:claude-3-7-sonnet-latest"),
-            "researcher_model": os.environ.get("RESEARCHER_MODEL", "anthropic:claude-3-5-sonnet-latest"),
+            "search_api": search_api,
+            "supervisor_model": models.get("supervisor_model"),
+            "researcher_model": models.get("researcher_model"),
         }
         
         thread_config = {"configurable": config}
@@ -104,22 +176,22 @@ def test_response_criteria_evaluation():
 
     elif research_agent == "graph":
         
-         # Topic query 
+        # Topic query 
         topic_query = "What is model context protocol? high-level overview of MCP, tell me about interesting specific MCP servers, developer audience, just focus on MCP"
    
         # Checkpointer for the graph approach
         checkpointer = MemorySaver()
         graph = builder.compile(checkpointer=checkpointer)
         
-        # Configuration for the graph agent with environment variables
+        # Configuration for the graph agent with provided parameters
         thread = {"configurable": {
             "thread_id": str(uuid.uuid4()),
-            "search_api": os.environ.get("SEARCH_API", "tavily"),
-            "planner_provider": os.environ.get("PLANNER_PROVIDER", "anthropic"),
-            "planner_model": os.environ.get("PLANNER_MODEL", "claude-3-7-sonnet-latest"),
-            "writer_provider": os.environ.get("WRITER_PROVIDER", "anthropic"),
-            "writer_model": os.environ.get("WRITER_MODEL", "claude-3-5-sonnet-latest"),
-            "max_search_depth": 2,
+            "search_api": search_api,
+            "planner_provider": models.get("planner_provider", "anthropic"),
+            "planner_model": models.get("planner_model", "claude-3-7-sonnet-latest"),
+            "writer_provider": models.get("writer_provider", "anthropic"),
+            "writer_model": models.get("writer_model", "claude-3-5-sonnet-latest"),
+            "max_search_depth": models.get("max_search_depth", 2),
         }}
         
         async def run_graph_agent(thread):    
@@ -139,6 +211,9 @@ def test_response_criteria_evaluation():
     
         report = asyncio.run(run_graph_agent(thread))
 
+    # Get evaluation LLM using the specified model
+    criteria_eval_structured_llm = get_evaluation_llm(eval_model)
+    
     # Evaluate the report against our quality criteria
     eval_result = criteria_eval_structured_llm.invoke([
         {"role": "system", "content": RESPONSE_CRITERIA_SYSTEM_PROMPT},

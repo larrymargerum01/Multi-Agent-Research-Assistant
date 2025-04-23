@@ -10,7 +10,7 @@ from langgraph.types import Command, Send
 from langgraph.graph import START, END, StateGraph
 
 from open_deep_research.configuration import Configuration
-from open_deep_research.utils import get_config_value, enhanced_tavily_search
+from open_deep_research.utils import get_config_value, enhanced_tavily_search, duckduckgo_search
 from open_deep_research.prompts import SUPERVISOR_INSTRUCTIONS, RESEARCH_INSTRUCTIONS
 
 ## Tools factory - will be initialized based on configuration
@@ -18,12 +18,14 @@ def get_search_tool(config: RunnableConfig):
     """Get the appropriate search tool based on configuration"""
     configurable = Configuration.from_runnable_config(config)
     search_api = get_config_value(configurable.search_api)
-    
-    # Default to Tavily if not specified
-    # TODO: Configure multi-agent to use many search tools
+
+    # TODO: Configure other search functions as tools
     if search_api.lower() == "tavily":
-        # Use the enhanced Tavily search with full content retrieval
+        # Use Tavily search tool
         return enhanced_tavily_search
+    elif search_api.lower() == "duckduckgo":
+        # Use the DuckDuckGo search tool
+        return duckduckgo_search
     else:
         # Raise NotImplementedError for search APIs other than Tavily
         raise NotImplementedError(

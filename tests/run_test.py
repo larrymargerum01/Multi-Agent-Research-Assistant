@@ -49,7 +49,7 @@ def main():
     parser.add_argument("--eval-model", help="Model for evaluating report quality (default: openai:gpt-4-turbo)")
     
     # Search API configuration
-    parser.add_argument("--search-api", choices=["tavily", "perplexity", "exa", "arxiv", "pubmed", "linkup"], 
+    parser.add_argument("--search-api", choices=["tavily", "duckduckgo"], 
                         help="Search API to use for content retrieval")
     
     args = parser.parse_args()
@@ -90,28 +90,8 @@ def main():
         # Create a fresh copy of the pytest options for this run
         pytest_options = base_pytest_options.copy()
         
-        # Use environment variables to pass the agent name and configurations
-        os.environ["RESEARCH_AGENT"] = agent
-        
-        # Pass model configurations if provided
-        if args.supervisor_model:
-            os.environ["SUPERVISOR_MODEL"] = args.supervisor_model
-        if args.researcher_model:
-            os.environ["RESEARCHER_MODEL"] = args.researcher_model
-        if args.planner_provider:
-            os.environ["PLANNER_PROVIDER"] = args.planner_provider
-        if args.planner_model:
-            os.environ["PLANNER_MODEL"] = args.planner_model
-        if args.writer_provider:
-            os.environ["WRITER_PROVIDER"] = args.writer_provider
-        if args.writer_model:
-            os.environ["WRITER_MODEL"] = args.writer_model
-        if args.eval_model:
-            os.environ["EVAL_MODEL"] = args.eval_model
-            
-        # Pass search API if provided
-        if args.search_api:
-            os.environ["SEARCH_API"] = args.search_api
+        # We're now using direct pytest command line arguments instead of environment variables
+        # No need to set environment variables for test parameters
         
         # Test file path
         test_file = "tests/test_report_quality.py"
@@ -125,8 +105,29 @@ def main():
         
         print(f"\nℹ️ Test results for {agent} are being logged to LangSmith")
         
-        # Run the test
-        cmd = ["python", "-m", "pytest", test_file] + pytest_options
+        # Run the test with direct pytest arguments instead of environment variables
+        cmd = ["python", "-m", "pytest", test_file] + pytest_options + [
+            f"--research-agent={agent}"
+        ]
+        
+        # Add model configurations if provided
+        if args.supervisor_model:
+            cmd.append(f"--supervisor-model={args.supervisor_model}")
+        if args.researcher_model:
+            cmd.append(f"--researcher-model={args.researcher_model}")
+        if args.planner_provider:
+            cmd.append(f"--planner-provider={args.planner_provider}")
+        if args.planner_model:
+            cmd.append(f"--planner-model={args.planner_model}")
+        if args.writer_provider:
+            cmd.append(f"--writer-provider={args.writer_provider}")
+        if args.writer_model:
+            cmd.append(f"--writer-model={args.writer_model}")
+        if args.eval_model:
+            cmd.append(f"--eval-model={args.eval_model}")
+        if args.search_api:
+            cmd.append(f"--search-api={args.search_api}")
+            
         print(f"Running command: {' '.join(cmd)}")
         
         result = subprocess.run(cmd, capture_output=True, text=True)
