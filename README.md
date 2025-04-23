@@ -7,7 +7,7 @@ Workflow:
 ![open-deep-research-overview](https://github.com/user-attachments/assets/a171660d-b735-4587-ab2f-cd771f773756)
 
 Multi-agent:
-![open-deep-research-overview](https://github.com/user-attachments/assets/22c28721-7c7b-47b5-a19d-4a9b23587b9c)
+![multi-agent-researcher](https://github.com/user-attachments/assets/3c734c3c-57aa-4bc0-85dd-74e2ec2c0880)
 
 ## 🚀 Quickstart
 
