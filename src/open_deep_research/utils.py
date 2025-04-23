@@ -24,74 +24,6 @@ from langsmith import traceable
 
 from open_deep_research.state import Section
     
-@tool
-async def enhanced_tavily_search(queries: List[str]) -> str:
-    """
-    Enhanced Tavily search tool that fetches search results and retrieves the full content of each result,
-    converting them to markdown format.
-    
-    Args:
-        queries (List[str]): List of search queries to use
-        
-    Returns:
-        str: A formatted string containing the full content of each search result in markdown format
-    """
-    # Use the existing tavily_search_async function
-    search_results = await tavily_search_async(queries)
-    
-    # Extract unique URLs and titles from the results
-    urls = []
-    titles = []
-    
-    # Process all results from all queries
-    for response in search_results:
-        for result in response['results']:
-            url = result['url']
-            # Only add if this URL isn't already in our list (deduplication)
-            if url not in urls:
-                urls.append(url)
-                titles.append(result['title'])
-    
-    # Create an async HTTP client
-    async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
-        pages = []
-        
-        # Fetch each URL and convert to markdown
-        for url in urls:
-            try:
-                # Fetch the content
-                response = await client.get(url)
-                response.raise_for_status()
-                
-                # Convert HTML to markdown if successful
-                if response.status_code == 200:
-                    # Handle different content types
-                    content_type = response.headers.get('Content-Type', '')
-                    if 'text/html' in content_type:
-                        # Convert HTML to markdown
-                        markdown_content = markdownify(response.text)
-                        pages.append(markdown_content)
-                    else:
-                        # For non-HTML content, just mention the content type
-                        pages.append(f"Content type: {content_type} (not converted to markdown)")
-                else:
-                    pages.append(f"Error: Received status code {response.status_code}")
-        
-            except Exception as e:
-                # Handle any exceptions during fetch
-                pages.append(f"Error fetching URL: {str(e)}")
-        
-        # Create formatted output 
-        formatted_output = f"Search results: \n\n"
-        
-        for i, (title, url, page) in enumerate(zip(titles, urls, pages)):
-            formatted_output += f"\n\n--- SOURCE {i+1}: {title} ---\n"
-            formatted_output += f"URL: {url}\n\n"
-            formatted_output += f"FULL CONTENT:\n {page}"
-            formatted_output += "\n\n" + "-" * 80 + "\n"
-        
-    return  formatted_output
-    
 def get_config_value(value):
     """
     Helper function to handle string, dict, and enum cases of configuration values
@@ -134,7 +66,7 @@ def get_search_params(search_api: str, search_api_config: Optional[Dict[str, Any
     # Filter the config to only include accepted parameters
     return {k: v for k, v in search_api_config.items() if k in accepted_params}
 
-def deduplicate_and_format_sources(search_response, max_tokens_per_source, include_raw_content=True):
+def deduplicate_and_format_sources(search_response, max_tokens_per_source=5000, include_raw_content=True):
     """
     Takes a list of search responses and formats them into a readable string.
     Limits the raw_content to approximately max_tokens_per_source tokens.
@@ -896,49 +828,6 @@ async def linkup_search(search_queries, depth: Optional[str] = "standard"):
         )
 
     return search_results
-@traceable
-async def duckduckgo_search(search_queries):
-    """Perform searches using DuckDuckGo
-    
-    Args:
-        search_queries (List[str]): List of search queries to process
-        
-    Returns:
-        List[dict]: List of search results
-    """
-    async def process_single_query(query):
-        # Execute synchronous search in the event loop's thread pool
-        loop = asyncio.get_event_loop()
-        
-        def perform_search():
-            results = []
-            with DDGS() as ddgs:
-                ddg_results = list(ddgs.text(query, max_results=5))
-                
-                # Format results
-                for i, result in enumerate(ddg_results):
-                    results.append({
-                        'title': result.get('title', ''),
-                        'url': result.get('link', ''),
-                        'content': result.get('body', ''),
-                        'score': 1.0 - (i * 0.1),  # Simple scoring mechanism
-                        'raw_content': result.get('body', '')
-                    })
-            return {
-                'query': query,
-                'follow_up_questions': None,
-                'answer': None,
-                'images': [],
-                'results': results
-            }
-            
-        return await loop.run_in_executor(None, perform_search)
-
-    # Execute all queries concurrently
-    tasks = [process_single_query(query) for query in search_queries]
-    search_docs = await asyncio.gather(*tasks)
-    
-    return search_docs
 
 @traceable
 async def google_search_async(search_queries: Union[str, List[str]], max_results: int = 5, include_raw_content: bool = True):
@@ -1201,6 +1090,212 @@ async def google_search_async(search_queries: Union[str, List[str]], max_results
         if executor:
             executor.shutdown(wait=False)
 
+async def scrape_pages(titles: List[str], urls: List[str]) -> str:
+    """
+    Scrapes content from a list of URLs and formats it into a readable markdown document.
+    
+    This function:
+    1. Takes a list of page titles and URLs
+    2. Makes asynchronous HTTP requests to each URL
+    3. Converts HTML content to markdown
+    4. Formats all content with clear source attribution
+    
+    Args:
+        titles (List[str]): A list of page titles corresponding to each URL
+        urls (List[str]): A list of URLs to scrape content from
+        
+    Returns:
+        str: A formatted string containing the full content of each page in markdown format,
+             with clear section dividers and source attribution
+    """
+    
+    # Create an async HTTP client
+    async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+        pages = []
+        
+        # Fetch each URL and convert to markdown
+        for url in urls:
+            try:
+                # Fetch the content
+                response = await client.get(url)
+                response.raise_for_status()
+                
+                # Convert HTML to markdown if successful
+                if response.status_code == 200:
+                    # Handle different content types
+                    content_type = response.headers.get('Content-Type', '')
+                    if 'text/html' in content_type:
+                        # Convert HTML to markdown
+                        markdown_content = markdownify(response.text)
+                        pages.append(markdown_content)
+                    else:
+                        # For non-HTML content, just mention the content type
+                        pages.append(f"Content type: {content_type} (not converted to markdown)")
+                else:
+                    pages.append(f"Error: Received status code {response.status_code}")
+        
+            except Exception as e:
+                # Handle any exceptions during fetch
+                pages.append(f"Error fetching URL: {str(e)}")
+        
+        # Create formatted output 
+        formatted_output = f"Search results: \n\n"
+        
+        for i, (title, url, page) in enumerate(zip(titles, urls, pages)):
+            formatted_output += f"\n\n--- SOURCE {i+1}: {title} ---\n"
+            formatted_output += f"URL: {url}\n\n"
+            formatted_output += f"FULL CONTENT:\n {page}"
+            formatted_output += "\n\n" + "-" * 80 + "\n"
+        
+    return  formatted_output
+
+@tool
+async def duckduckgo_search(search_queries: List[str]):
+    """Perform searches using DuckDuckGo with retry logic to handle rate limits
+    
+    Args:
+        search_queries (List[str]): List of search queries to process
+        
+    Returns:
+        List[dict]: List of search results
+    """
+    
+    async def process_single_query(query):
+        # Execute synchronous search in the event loop's thread pool
+        loop = asyncio.get_event_loop()
+        
+        def perform_search():
+            max_retries = 3
+            retry_count = 0
+            backoff_factor = 2.0
+            last_exception = None
+            
+            while retry_count <= max_retries:
+                try:
+                    results = []
+                    with DDGS() as ddgs:
+                        # Change query slightly and add delay between retries
+                        if retry_count > 0:
+                            # Random delay with exponential backoff
+                            delay = backoff_factor ** retry_count + random.random()
+                            print(f"Retry {retry_count}/{max_retries} for query '{query}' after {delay:.2f}s delay")
+                            time.sleep(delay)
+                            
+                            # Add a random element to the query to bypass caching/rate limits
+                            modifiers = ['about', 'info', 'guide', 'overview', 'details', 'explained']
+                            modified_query = f"{query} {random.choice(modifiers)}"
+                        else:
+                            modified_query = query
+                        
+                        # Execute search
+                        ddg_results = list(ddgs.text(modified_query, max_results=5))
+                        
+                        # Format results
+                        for i, result in enumerate(ddg_results):
+                            results.append({
+                                'title': result.get('title', ''),
+                                'url': result.get('href', ''),
+                                'content': result.get('body', ''),
+                                'score': 1.0 - (i * 0.1),  # Simple scoring mechanism
+                                'raw_content': result.get('body', '')
+                            })
+                        
+                        # Return successful results
+                        return {
+                            'query': query,
+                            'follow_up_questions': None,
+                            'answer': None,
+                            'images': [],
+                            'results': results
+                        }
+                except Exception as e:
+                    # Store the exception and retry
+                    last_exception = e
+                    retry_count += 1
+                    print(f"DuckDuckGo search error: {str(e)}. Retrying {retry_count}/{max_retries}")
+                    
+                    # If not a rate limit error, don't retry
+                    if "Ratelimit" not in str(e) and retry_count >= 1:
+                        print(f"Non-rate limit error, stopping retries: {str(e)}")
+                        break
+            
+            # If we reach here, all retries failed
+            print(f"All retries failed for query '{query}': {str(last_exception)}")
+            # Return empty results but with query info preserved
+            return {
+                'query': query,
+                'follow_up_questions': None,
+                'answer': None,
+                'images': [],
+                'results': [],
+                'error': str(last_exception)
+            }
+            
+        return await loop.run_in_executor(None, perform_search)
+
+    # Process queries with delay between them to reduce rate limiting
+    search_docs = []
+    urls = []
+    titles = []
+    for i, query in enumerate(search_queries):
+        # Add delay between queries (except first one)
+        if i > 0:
+            delay = 2.0 + random.random() * 2.0  # Random delay 2-4 seconds
+            await asyncio.sleep(delay)
+        
+        # Process the query
+        result = await process_single_query(query)
+        search_docs.append(result)
+        
+        # Safely extract URLs and titles from results, handling empty result cases
+        if result['results'] and len(result['results']) > 0:
+            for res in result['results']:
+                if 'url' in res and 'title' in res:
+                    urls.append(res['url'])
+                    titles.append(res['title'])
+    
+    # If we got any valid URLs, scrape the pages
+    if urls:
+        return await scrape_pages(titles, urls)
+    else:
+        # Return a formatted error message if no valid URLs were found
+        return "No valid search results found. Please try different search queries or use a different search API."
+
+@tool
+async def enhanced_tavily_search(queries: List[str]) -> str:
+    """
+    Enhanced Tavily search tool that fetches search results and retrieves the full content of each result,
+    converting them to markdown format.
+    
+    Args:
+        queries (List[str]): List of search queries to use
+        
+    Returns:
+        str: A formatted string containing the full content of each search result in markdown format
+    """
+    # Use the existing tavily_search_async function
+    search_results = await tavily_search_async(queries)
+    
+    # Extract unique URLs and titles from the results
+    urls = []
+    titles = []
+    
+    # Process all results from all queries
+    for response in search_results:
+        for result in response['results']:
+            url = result['url']
+            # Only add if this URL isn't already in our list (deduplication)
+            if url not in urls:
+                urls.append(url)
+                titles.append(result['title'])
+    
+    # If we got any valid URLs, scrape the pages
+    if urls:
+        return await scrape_pages(titles, urls)
+    else:
+        # Return a formatted error message if no valid URLs were found
+        return "No valid search results found. Please try different search queries or use a different search API."
+
 async def select_and_execute_search(search_api: str, query_list: list[str], params_to_pass: dict) -> str:
     """Select and execute the appropriate search API.
     
@@ -1218,6 +1313,9 @@ async def select_and_execute_search(search_api: str, query_list: list[str], para
     if search_api == "tavily":
         # Tavily search tool used with both workflow and agent 
         return await enhanced_tavily_search.ainvoke({'queries': query_list})
+    elif search_api == "duckduckgo":
+        # DuckDuckGo search tool used with both workflow and agent 
+        return await duckduckgo_search.ainvoke({'search_queries': query_list})
     elif search_api == "perplexity":
         search_results = perplexity_search(query_list, **params_to_pass)
         return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
@@ -1232,9 +1330,6 @@ async def select_and_execute_search(search_api: str, query_list: list[str], para
         return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     elif search_api == "linkup":
         search_results = await linkup_search(query_list, **params_to_pass)
-        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
-    elif search_api == "duckduckgo":
-        search_results = await duckduckgo_search(query_list)
         return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     elif search_api == "googlesearch":
         search_results = await google_search_async(query_list, **params_to_pass)
