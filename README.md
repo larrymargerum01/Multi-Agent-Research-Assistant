@@ -12,90 +12,18 @@ Open Deep Research is an experimental, fully open-source research assistant that
 
 ### 🚀 Quickstart
 
-Ensure you have API keys set for your desired search tools and models.
-
-Available search tools:
-
-* [Tavily API](https://tavily.com/) - General web search
-* [Perplexity API](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api) - General web search
-* [Exa API](https://exa.ai/) - Powerful neural search for web content
-* [ArXiv](https://arxiv.org/) - Academic papers in physics, mathematics, computer science, and more
-* [PubMed](https://pubmed.ncbi.nlm.nih.gov/) - Biomedical literature from MEDLINE, life science journals, and online books
-* [Linkup API](https://www.linkup.so/) - General web search
-* [DuckDuckGo API](https://duckduckgo.com/) - General web search
-* [Google Search API/Scrapper](https://google.com/) - Create custom search engine [here](https://programmablesearchengine.google.com/controlpanel/all) and get API key [here](https://developers.google.com/custom-search/v1/introduction)
-
-Open Deep Research is compatible with many different LLMs: 
-
-* You can select any model that is integrated [with the `init_chat_model()` API](https://python.langchain.com/docs/how_to/chat_models_universal_init/)
-* See full list of supported integrations [here](https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html)
-
-### Using the package
-
-```bash
-pip install open-deep-research
-```
-
-As mentioned above, ensure API keys for LLMs and search tools are set: 
-```bash
-export TAVILY_API_KEY=<your_tavily_api_key>
-export ANTHROPIC_API_KEY=<your_anthropic_api_key>
-```
-
-See [src/open_deep_research/graph.ipynb](src/open_deep_research/graph.ipynb) for example usage in a Jupyter notebook:
-
-Compile the graph:
-```python
-from langgraph.checkpoint.memory import MemorySaver
-from open_deep_research.graph import builder
-memory = MemorySaver()
-graph = builder.compile(checkpointer=memory)
-```
-
-Run the graph with a desired topic and configuration:
-```python
-import uuid 
-thread = {"configurable": {"thread_id": str(uuid.uuid4()),
-                           "search_api": "tavily",
-                           "planner_provider": "anthropic",
-                           "planner_model": "claude-3-7-sonnet-latest",
-                           "writer_provider": "anthropic",
-                           "writer_model": "claude-3-5-sonnet-latest",
-                           "max_search_depth": 1,
-                           }}
-
-topic = "Overview of the AI inference market with focus on Fireworks, Together.ai, Groq"
-async for event in graph.astream({"topic":topic,}, thread, stream_mode="updates"):
-    print(event)
-```
-
-The graph will stop when the report plan is generated, and you can pass feedback to update the report plan:
-```python
-from langgraph.types import Command
-async for event in graph.astream(Command(resume="Include a revenue estimate (ARR) in the sections"), thread, stream_mode="updates"):
-    print(event)
-```
-
-When you are satisfied with the report plan, you can pass `True` to proceed to report generation:
-```python
-async for event in graph.astream(Command(resume=True), thread, stream_mode="updates"):
-    print(event)
-```
-
-### Running LangGraph Studio UI locally
-
 Clone the repository:
 ```bash
 git clone https://github.com/langchain-ai/open_deep_research.git
 cd open_deep_research
 ```
 
-Then edit the `.env` file to customize the environment variables according to your needs. These environment variables control the model selection, search tools, and other configuration settings. When you run the application, these values will be automatically loaded via `python-dotenv` (because `langgraph.json` point to the "env" file).
+Then edit the `.env` file to customize the environment variables (for model selection, search tools, and other configuration settings):
 ```bash
 cp .env.example .env
 ```
 
-Set whatever APIs needed for your model and search tools. Launch the assistant with the LangGraph server locally, which will open in your browser:
+Launch the assistant with the LangGraph server locally, which will open in your browser:
 
 #### Mac
 
@@ -125,7 +53,17 @@ Use this to open the Studio UI:
 - 📚 API Docs: http://127.0.0.1:2024/docs
 ```
 
-(1) Provide a `Topic` and hit `Submit`:
+#### Multi-agent
+
+(1) Chat with the agent about your topic of interest, and it will initiate report generation:
+
+<img width="1326" alt="input" src="https://github.com/user-attachments/assets/dc8f59dd-14b3-4a62-ac18-d2f99c8bbe83" />
+
+(2) The report is produced as markdown.
+
+#### Workflow
+
+(1) Provide a `Topic`:
 
 <img width="1326" alt="input" src="https://github.com/user-attachments/assets/de264b1b-8ea5-4090-8e72-e1ef1230262f" />
 
@@ -135,7 +73,7 @@ Use this to open the Studio UI:
 
 <img width="1326" alt="feedback" src="https://github.com/user-attachments/assets/c308e888-4642-4c74-bc78-76576a2da919" />
 
-(4) Or, we can just pass `true` to accept the plan.
+(4) Or, we can just pass `true` to the JSON input box in Studio accept the plan.
 
 <img width="1480" alt="accept" src="https://github.com/user-attachments/assets/ddeeb33b-fdce-494f-af8b-bd2acc1cef06" />
 
@@ -147,9 +85,49 @@ The report is produced as markdown.
 
 <img width="1326" alt="report" src="https://github.com/user-attachments/assets/92d9f7b7-3aea-4025-be99-7fb0d4b47289" />
 
-## 📖 Customizing the report
+### Search Tools
 
-You can customize the research assistant's behavior through several parameters:
+Available search tools:
+
+* [Tavily API](https://tavily.com/) - General web search
+* [Perplexity API](https://www.perplexity.ai/hub/blog/introducing-the-sonar-pro-api) - General web search
+* [Exa API](https://exa.ai/) - Powerful neural search for web content
+* [ArXiv](https://arxiv.org/) - Academic papers in physics, mathematics, computer science, and more
+* [PubMed](https://pubmed.ncbi.nlm.nih.gov/) - Biomedical literature from MEDLINE, life science journals, and online books
+* [Linkup API](https://www.linkup.so/) - General web search
+* [DuckDuckGo API](https://duckduckgo.com/) - General web search
+* [Google Search API/Scrapper](https://google.com/) - Create custom search engine [here](https://programmablesearchengine.google.com/controlpanel/all) and get API key [here](https://developers.google.com/custom-search/v1/introduction)
+
+Open Deep Research is compatible with many different LLMs: 
+
+* You can select any model that is integrated [with the `init_chat_model()` API](https://python.langchain.com/docs/how_to/chat_models_universal_init/)
+* See full list of supported integrations [here](https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html)
+
+### Using the package
+
+```bash
+pip install open-deep-research
+```
+
+See [src/open_deep_research/graph.ipynb](src/open_deep_research/graph.ipynb) and [src/open_deep_research/multi_agent.ipynb](src/open_deep_research/multi_agent.ipynb) for example usage in a Jupyter notebook:
+
+## Open Deep Research Implementations
+
+Open Deep Research features two distinct implementation approaches, each with its own strengths:
+
+## 1. Graph-based Workflow Implementation (`src/open_deep_research/graph.py`)
+
+The graph-based implementation follows a structured plan-and-execute workflow:
+
+- **Planning Phase**: Uses a planner model to analyze the topic and generate a structured report plan
+- **Human-in-the-Loop**: Allows for human feedback and approval of the report plan before proceeding
+- **Sequential Research Process**: Creates sections one by one with reflection between search iterations
+- **Section-Specific Research**: Each section has dedicated search queries and content retrieval
+- **Supports Multiple Search Tools**: Works with all search providers (Tavily, Perplexity, Exa, ArXiv, PubMed, Linkup, etc.)
+
+This implementation provides a more interactive experience with greater control over the report structure, making it ideal for situations where report quality and accuracy are critical.
+
+You can customize the research assistant workflow through several parameters:
 
 - `report_structure`: Define a custom structure for your report (defaults to a standard research report format)
 - `number_of_queries`: Number of search queries to generate per section (default: 2)
@@ -162,9 +140,19 @@ You can customize the research assistant's behavior through several parameters:
 - `writer_model_kwargs`: Additional parameter for writer_model
 - `search_api`: API to use for web searches (default: "tavily", options include "perplexity", "exa", "arxiv", "pubmed", "linkup")
 
-These configurations allow you to fine-tune the research process based on your needs, from adjusting the depth of research to selecting specific AI models for different phases of report generation.
+## 2. Multi-Agent Implementation (`src/open_deep_research/multi_agent.py`)
 
-### Search API Configuration
+The multi-agent implementation uses a supervisor-researcher architecture:
+
+- **Supervisor Agent**: Manages the overall research process, plans sections, and assembles the final report
+- **Researcher Agents**: Multiple independent agents work in parallel, each responsible for researching and writing a specific section
+- **Parallel Processing**: All sections are researched simultaneously, significantly reducing report generation time
+- **Specialized Tool Design**: Each agent has access to specific tools for its role (search for researchers, section planning for supervisors)
+- **Currently Limited to Tavily Search**: The multi-agent implementation currently only works with Tavily for search, though the framework is designed to support additional search tools in the future
+
+This implementation focuses on efficiency and parallelization, making it ideal for faster report generation with less direct user involvement.
+
+## Search API Configuration
 
 Not all search APIs support additional configuration parameters. Here are the ones that do:
 
@@ -188,63 +176,23 @@ thread = {"configurable": {"thread_id": str(uuid.uuid4()),
                            }}
 ```
 
-### Model Considerations
+## Model Considerations
 
-(1) You can pass any planner and writer models that are integrated [with the `init_chat_model()` API](https://python.langchain.com/docs/how_to/chat_models_universal_init/). See full list of supported integrations [here](https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html).
+(1) You can use models supported with [the `init_chat_model()` API](https://python.langchain.com/docs/how_to/chat_models_universal_init/). See full list of supported integrations [here](https://python.langchain.com/api_reference/langchain/chat_models/langchain.chat_models.base.init_chat_model.html).
 
-(2) **The planner and writer models need to support structured outputs**: Check whether structured outputs are supported by the model you are using [here](https://python.langchain.com/docs/integrations/chat/).
+(2) ***The workflow planner and writer models need to support structured outputs***: Check whether structured outputs are supported by the model you are using [here](https://python.langchain.com/docs/integrations/chat/).
 
-(3) With Groq, there are token per minute (TPM) limits if you are on the `on_demand` service tier:
+(3) ***The agent models need to support tool calling:*** Ensure tool calling is well supoorted; tests have been done with Claude 3.7, o3, o3-mini, and gpt4.1. See [here](https://smith.langchain.com/public/adc5d60c-97ee-4aa0-8b2c-c776fb0d7bd6/d).
+
+(4) With Groq, there are token per minute (TPM) limits if you are on the `on_demand` service tier:
 - The `on_demand` service tier has a limit of `6000 TPM`
 - You will want a [paid plan](https://github.com/cline/cline/issues/47#issuecomment-2640992272) for section writing with Groq models
 
-(4) `deepseek-R1` [is not strong at function calling](https://api-docs.deepseek.com/guides/reasoning_model), which the assistant uses to generate structured outputs for report sections and report section grading. See example traces [here](https://smith.langchain.com/public/07d53997-4a6d-4ea8-9a1f-064a85cd6072/r).  
+(5) `deepseek-R1` [is not strong at function calling](https://api-docs.deepseek.com/guides/reasoning_model), which the assistant uses to generate structured outputs for report sections and report section grading. See example traces [here](https://smith.langchain.com/public/07d53997-4a6d-4ea8-9a1f-064a85cd6072/r).  
 - Consider providers that are strong at function calling such as OpenAI, Anthropic, and certain OSS models like Groq's `llama-3.3-70b-versatile`.
 - If you see the following error, it is likely due to the model not being able to produce structured outputs (see [trace](https://smith.langchain.com/public/8a6da065-3b8b-4a92-8df7-5468da336cbe/r)):
 ```
 groq.APIError: Failed to call a function. Please adjust your prompt. See 'failed_generation' for more details.
-```
-
-## Open Deep Research Implementations
-
-Open Deep Research features two distinct implementation approaches, each with its own strengths:
-
-## 1. Graph-based Workflow Implementation (`src/open_deep_research/graph.py`)
-
-The graph-based implementation follows a structured plan-and-execute workflow:
-
-- **Planning Phase**: Uses a planner model to analyze the topic and generate a structured report plan
-- **Human-in-the-Loop**: Allows for human feedback and approval of the report plan before proceeding
-- **Sequential Research Process**: Creates sections one by one with reflection between search iterations
-- **Section-Specific Research**: Each section has dedicated search queries and content retrieval
-- **Supports Multiple Search Tools**: Works with all search providers (Tavily, Perplexity, Exa, ArXiv, PubMed, Linkup, etc.)
-
-This implementation provides a more interactive experience with greater control over the report structure, making it ideal for situations where report quality and accuracy are critical.
-
-## 2. Multi-Agent Implementation (`src/open_deep_research/multi_agent.py`)
-
-The multi-agent implementation uses a supervisor-researcher architecture:
-
-- **Supervisor Agent**: Manages the overall research process, plans sections, and assembles the final report
-- **Researcher Agents**: Multiple independent agents work in parallel, each responsible for researching and writing a specific section
-- **Parallel Processing**: All sections are researched simultaneously, significantly reducing report generation time
-- **Specialized Tool Design**: Each agent has access to specific tools for its role (search for researchers, section planning for supervisors)
-- **Currently Limited to Tavily Search**: The multi-agent implementation currently only works with Tavily for search, though the framework is designed to support additional search tools in the future
-
-This implementation focuses on efficiency and parallelization, making it ideal for faster report generation with less direct user involvement.
-
-### Future Development
-
-We plan to extend the multi-agent implementation to support additional search tools beyond Tavily. The current placeholder in the code:
-
-```python
-else:
-    # This is a placeholder tool that will be replaced in execution
-    return TavilySearch(
-        max_results=5,
-        topic="general",
-        include_raw_content=True
-    )
 ```
 
 ## Testing Report Quality
