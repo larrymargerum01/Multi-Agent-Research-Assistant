@@ -49,7 +49,7 @@ def get_search_params(search_api: str, search_api_config: Optional[Dict[str, Any
     # Define accepted parameters for each search API
     SEARCH_API_PARAMS = {
         "exa": ["max_characters", "num_results", "include_domains", "exclude_domains", "subpages"],
-        "tavily": [],  # Tavily currently accepts no additional parameters
+        "tavily": ["max_results", "topic"],
         "perplexity": [],  # Perplexity accepts no additional parameters
         "arxiv": ["load_max_docs", "get_full_documents", "load_all_available_meta"],
         "pubmed": ["top_k_results", "email", "api_key", "doc_content_chars_max"],
@@ -137,7 +137,7 @@ Content:
     return formatted_str
 
 @traceable
-async def tavily_search_async(search_queries, include_raw_content=True):
+async def tavily_search_async(search_queries, max_results: int = 5, topic: str = "general", include_raw_content: bool = True):
     """
     Performs concurrent web searches with the Tavily API
 
@@ -169,9 +169,9 @@ async def tavily_search_async(search_queries, include_raw_content=True):
             search_tasks.append(
                 tavily_async_client.search(
                     query,
-                    max_results=5,
+                    max_results=max_results,
                     include_raw_content=include_raw_content,
-                    topic="general"
+                    topic=topic
                 )
             )
 
@@ -1261,7 +1261,7 @@ async def duckduckgo_search(search_queries: List[str]):
         return "No valid search results found. Please try different search queries or use a different search API."
 
 @tool
-async def tavily_search(queries: List[str]) -> str:
+async def tavily_search(queries: List[str], max_results: int = 5, topic: str = "general") -> str:
     """
     Fetches results from Tavily search API.
     
@@ -1272,8 +1272,13 @@ async def tavily_search(queries: List[str]) -> str:
         str: A formatted string of search results
     """
     # Use tavily_search_async with include_raw_content=True to get content directly
-    search_results = await tavily_search_async(queries, include_raw_content=True)
-    
+    search_results = await tavily_search_async(
+        queries,
+        max_results=max_results,
+        topic=topic,
+        include_raw_content=True
+    )
+
     # Format the search results directly using the raw_content already provided
     formatted_output = f"Search results: \n\n"
     
@@ -1315,7 +1320,7 @@ async def select_and_execute_search(search_api: str, query_list: list[str], para
     """
     if search_api == "tavily":
         # Tavily search tool used with both workflow and agent 
-        return await tavily_search.ainvoke({'queries': query_list})
+        return await tavily_search.ainvoke({'queries': query_list}, **params_to_pass)
     elif search_api == "duckduckgo":
         # DuckDuckGo search tool used with both workflow and agent 
         return await duckduckgo_search.ainvoke({'search_queries': query_list})
