@@ -33,7 +33,7 @@ dependencies = [
     "markdownify>=0.11.6",
     "azure-identity>=1.21.0",
     "azure-search>=1.0.0b2",
-    "azure-search-documents">=11.5.2"
+    "azure-search-documents>=11.5.2"
 ]
 
 [project.optional-dependencies]
