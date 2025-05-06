@@ -1372,7 +1372,7 @@ async def tavily_search(queries: List[str], max_results: int = 5, topic: str = "
 @tool
 async def azureaisearch_search(queries: List[str], max_results: int = 5, topic: str = "general") -> str:
     """
-    Fetches results from Tavily search API.
+    Fetches results from Azure AI Search API.
     
     Args:
         queries (List[str]): List of search queries
@@ -1380,7 +1380,7 @@ async def azureaisearch_search(queries: List[str], max_results: int = 5, topic: 
     Returns:
         str: A formatted string of search results
     """
-    # Use tavily_search_async with include_raw_content=True to get content directly
+    # Use azureaisearch_search_async with include_raw_content=True to get content directly
     search_results = await azureaisearch_search_async(
         queries,
         max_results=max_results,
