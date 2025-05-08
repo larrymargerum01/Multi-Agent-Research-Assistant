@@ -1279,8 +1279,8 @@ async def tavily_search(queries: List[str], max_results: int = 5, topic: Literal
     # Use tavily_search_async with include_raw_content=True to get content directly
     search_results = await tavily_search_async(
         queries,
-        max_results=max_results,
-        topic=topic,
+        max_results=5,
+        topic="general",
         include_raw_content=True
     )
 
