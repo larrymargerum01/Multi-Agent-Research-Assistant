@@ -45,7 +45,7 @@ class ReportStateOutput(TypedDict):
 
 class ReportState(TypedDict):
     topic: str # Report topic    
-    feedback_on_report_plan: str # Feedback on the report plan
+    feedback_on_report_plan: Annotated[list[str], operator.add] # List of feedback on the report plan
     sections: list[Section] # List of report sections 
     completed_sections: Annotated[list, operator.add] # Send() API key
     report_sections_from_research: str # String of any completed sections from research to write final sections
