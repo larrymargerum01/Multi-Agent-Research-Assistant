@@ -6,7 +6,7 @@ import concurrent
 import aiohttp
 import httpx
 import time
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, Literal
 from urllib.parse import unquote
 
 from exa_py import Exa
@@ -58,6 +58,7 @@ def get_search_params(search_api: str, search_api_config: Optional[Dict[str, Any
         "arxiv": ["load_max_docs", "get_full_documents", "load_all_available_meta"],
         "pubmed": ["top_k_results", "email", "api_key", "doc_content_chars_max"],
         "linkup": ["depth"],
+        "googlesearch": ["max_results"],
     }
 
     # Get the list of accepted parameters for the given search API
@@ -141,12 +142,15 @@ Content:
     return formatted_str
 
 @traceable
-async def tavily_search_async(search_queries, max_results: int = 5, topic: str = "general", include_raw_content: bool = True):
+async def tavily_search_async(search_queries, max_results: int = 5, topic: Literal["general", "news", "finance"] = "general", include_raw_content: bool = True):
     """
     Performs concurrent web searches with the Tavily API
 
     Args:
         search_queries (List[str]): List of search queries to process
+        max_results (int): Maximum number of results to return
+        topic (Literal["general", "news", "finance"]): Topic to filter results by
+        include_raw_content (bool): Whether to include raw content in the results
 
     Returns:
             List[dict]: List of search responses from Tavily API:
@@ -1325,12 +1329,14 @@ async def duckduckgo_search(search_queries: List[str]):
         return "No valid search results found. Please try different search queries or use a different search API."
 
 @tool
-async def tavily_search(queries: List[str], max_results: int = 5, topic: str = "general") -> str:
+async def tavily_search(queries: List[str], max_results: int = 5, topic: Literal["general", "news", "finance"] = "general") -> str:
     """
     Fetches results from Tavily search API.
     
     Args:
         queries (List[str]): List of search queries
+        max_results (int): Maximum number of results to return
+        topic (Literal["general", "news", "finance"]): Topic to filter results by
         
     Returns:
         str: A formatted string of search results
@@ -1338,8 +1344,8 @@ async def tavily_search(queries: List[str], max_results: int = 5, topic: str = "
     # Use tavily_search_async with include_raw_content=True to get content directly
     search_results = await tavily_search_async(
         queries,
-        max_results=max_results,
-        topic=topic,
+        max_results=5,
+        topic="general",
         include_raw_content=True
     )
 
