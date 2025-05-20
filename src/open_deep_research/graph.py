@@ -107,7 +107,7 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
 
     # Report planner instructions
     planner_message = """Generate the sections of the report. Your response must include a 'sections' field containing a list of sections. 
-                        Each section must have: name, description, plan, research, and content fields."""
+                        Each section must have: name, description, research, and content fields."""
 
     # Run the planner
     if planner_model == "claude-3-7-sonnet-latest":
