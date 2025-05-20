@@ -58,7 +58,12 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
 
     # Inputs
     topic = state["topic"]
-    feedback = state.get("feedback_on_report_plan", None)
+
+    # Get list of feedback on the report plan
+    feedback_list = state.get("feedback_on_report_plan", [])
+
+    # Concatenate feedback on the report plan into a single string
+    feedback = " /// ".join(feedback_list) if feedback_list else ""
 
     # Get configuration
     configurable = Configuration.from_runnable_config(config)
@@ -174,9 +179,9 @@ def human_feedback(state: ReportState, config: RunnableConfig) -> Command[Litera
     
     # If the user provides feedback, regenerate the report plan 
     elif isinstance(feedback, str):
-        # Treat this as feedback
+        # Treat this as feedback and append it to the existing list
         return Command(goto="generate_report_plan", 
-                       update={"feedback_on_report_plan": feedback})
+                       update={"feedback_on_report_plan": [feedback]})
     else:
         raise TypeError(f"Interrupt value of type {type(feedback)} is not supported.")
     
