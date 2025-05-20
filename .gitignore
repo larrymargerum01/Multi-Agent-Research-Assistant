@@ -1,3 +1,7 @@
+
+*.egg-info
+*.pyc
+
 # Python
 __pycache__/
 *.py[cod]
