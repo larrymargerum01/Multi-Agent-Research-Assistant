@@ -36,6 +36,7 @@ def get_search_tool(config: RunnableConfig):
 
 @tool
 class Section(BaseModel):
+    """Section of the report."""
     name: str = Field(
         description="Name for this section of the report.",
     )
@@ -48,12 +49,14 @@ class Section(BaseModel):
 
 @tool
 class Sections(BaseModel):
+    """List of section titles of the report."""
     sections: List[str] = Field(
         description="Sections of the report.",
     )
 
 @tool
 class Introduction(BaseModel):
+    """Introduction to the report."""
     name: str = Field(
         description="Name for the report.",
     )
@@ -63,6 +66,7 @@ class Introduction(BaseModel):
 
 @tool
 class Conclusion(BaseModel):
+    """Conclusion to the report."""
     name: str = Field(
         description="Name for the conclusion of the report.",
     )
