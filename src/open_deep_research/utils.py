@@ -71,7 +71,12 @@ def get_search_params(search_api: str, search_api_config: Optional[Dict[str, Any
     # Filter the config to only include accepted parameters
     return {k: v for k, v in search_api_config.items() if k in accepted_params}
 
-def deduplicate_and_format_sources(search_response, max_tokens_per_source=5000, include_raw_content=True):
+def deduplicate_and_format_sources(
+    search_response,
+    max_tokens_per_source=5000,
+    include_raw_content=True,
+    deduplication_strategy: Literal["keep_first", "keep_last"] = "keep_first"
+):
     """
     Takes a list of search responses and formats them into a readable string.
     Limits the raw_content to approximately max_tokens_per_source tokens.
@@ -87,7 +92,7 @@ def deduplicate_and_format_sources(search_response, max_tokens_per_source=5000, 
                 - raw_content: str|None
         max_tokens_per_source: int
         include_raw_content: bool
-            
+        deduplication_strategy: Whether to keep the first or last search result for each unique URL
     Returns:
         str: Formatted string with deduplicated sources
     """
@@ -95,9 +100,17 @@ def deduplicate_and_format_sources(search_response, max_tokens_per_source=5000, 
     sources_list = []
     for response in search_response:
         sources_list.extend(response['results'])
-    
+
     # Deduplicate by URL
-    unique_sources = {source['url']: source for source in sources_list}
+    if deduplication_strategy == "keep_first":
+        unique_sources = {}
+        for source in sources_list:
+            if source['url'] not in unique_sources:
+                unique_sources[source['url']] = source
+    elif deduplication_strategy == "keep_last":
+        unique_sources = {source['url']: source for source in sources_list}
+    else:
+        raise ValueError(f"Invalid deduplication strategy: {deduplication_strategy}")
 
     # Format output
     formatted_text = "Content from sources:\n"
@@ -1205,7 +1218,7 @@ async def scrape_pages(titles: List[str], urls: List[str]) -> str:
                 # Handle any exceptions during fetch
                 pages.append(f"Error fetching URL: {str(e)}")
         
-        # Create formatted output 
+        # Create formatted output
         formatted_output = f"Search results: \n\n"
         
         for i, (title, url, page) in enumerate(zip(titles, urls, pages)):
@@ -1214,7 +1227,7 @@ async def scrape_pages(titles: List[str], urls: List[str]) -> str:
             formatted_output += f"FULL CONTENT:\n {page}"
             formatted_output += "\n\n" + "-" * 80 + "\n"
         
-    return  formatted_output
+    return formatted_output
 
 @tool
 async def duckduckgo_search(search_queries: List[str]):
@@ -1224,7 +1237,7 @@ async def duckduckgo_search(search_queries: List[str]):
         search_queries (List[str]): List of search queries to process
         
     Returns:
-        List[dict]: List of search results
+        str: A formatted string of search results
     """
     
     async def process_single_query(query):
@@ -1325,7 +1338,6 @@ async def duckduckgo_search(search_queries: List[str]):
     if urls:
         return await scrape_pages(titles, urls)
     else:
-        # Return a formatted error message if no valid URLs were found
         return "No valid search results found. Please try different search queries or use a different search API."
 
 @tool
@@ -1420,9 +1432,6 @@ async def azureaisearch_search(queries: List[str], max_results: int = 5, topic: 
         return "No valid search results found. Please try different search queries or use a different search API."
 
 
-
-
-
 async def select_and_execute_search(search_api: str, query_list: list[str], params_to_pass: dict) -> str:
     """Select and execute the appropriate search API.
     
@@ -1440,31 +1449,26 @@ async def select_and_execute_search(search_api: str, query_list: list[str], para
     print(f"query_list: {query_list} params_to_pass: {params_to_pass}")
     if search_api == "tavily":
         # Tavily search tool used with both workflow and agent 
+        # and returns a formatted source string
         return await tavily_search.ainvoke({'queries': query_list}, **params_to_pass)
     elif search_api == "duckduckgo":
         # DuckDuckGo search tool used with both workflow and agent 
         return await duckduckgo_search.ainvoke({'search_queries': query_list})
     elif search_api == "perplexity":
         search_results = perplexity_search(query_list, **params_to_pass)
-        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     elif search_api == "exa":
         search_results = await exa_search(query_list, **params_to_pass)
-        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     elif search_api == "arxiv":
         search_results = await arxiv_search_async(query_list, **params_to_pass)
-        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     elif search_api == "pubmed":
         search_results = await pubmed_search_async(query_list, **params_to_pass)
-        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     elif search_api == "linkup":
         search_results = await linkup_search(query_list, **params_to_pass)
-        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     elif search_api == "googlesearch":
         search_results = await google_search_async(query_list, **params_to_pass)
-        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     elif search_api == "azureaisearch":
-        #raise NotImplementedError("Azure AI Search is not implemented yet.")
         search_results = await azureaisearch_search_async(query_list, **params_to_pass)
-        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
     else:
         raise ValueError(f"Unsupported search API: {search_api}")
+
+    return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000, deduplication_strategy="keep_first")

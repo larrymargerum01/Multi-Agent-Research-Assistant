@@ -21,17 +21,14 @@ def get_search_tool(config: RunnableConfig):
 
     # TODO: Configure other search functions as tools
     if search_api.lower() == "tavily":
-        # Use Tavily search tool
         return tavily_search
     elif search_api.lower() == "duckduckgo":
-        # Use the DuckDuckGo search tool
         return duckduckgo_search
     else:
-        # Raise NotImplementedError for search APIs other than Tavily
         raise NotImplementedError(
             f"The search API '{search_api}' is not yet supported in the multi-agent implementation. "
-            f"Currently, only Tavily is supported. Please use the graph-based implementation in "
-            f"src/open_deep_research/graph.py for other search APIs, or set search_api to 'tavily'."
+            f"Currently, only Tavily/DuckDuckGo is supported. Please use the graph-based implementation in "
+            f"src/open_deep_research/graph.py for other search APIs, or set search_api to 'tavily' or 'duckduckgo'."
         )
 
 @tool
