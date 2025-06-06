@@ -65,3 +65,5 @@ node_modules/
 # Temporary files
 tmp/
 temp/
+
+.langgraph_api

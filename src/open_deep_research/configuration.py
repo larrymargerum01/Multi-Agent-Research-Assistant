@@ -1,11 +1,9 @@
 import os
 from enum import Enum
-from dataclasses import dataclass, fields
-from typing import Any, Optional, Dict 
+from dataclasses import dataclass, fields, field
+from typing import Any, Optional, Dict, Literal
 
-from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.runnables import RunnableConfig
-from dataclasses import dataclass
 
 DEFAULT_REPORT_STRUCTURE = """Use this structure to create a report on the user-provided topic:
 
@@ -28,6 +26,7 @@ class SearchAPI(Enum):
     LINKUP = "linkup"
     DUCKDUCKGO = "duckduckgo"
     GOOGLESEARCH = "googlesearch"
+    NONE = "none"
 
 @dataclass(kw_only=True)
 class Configuration:
@@ -36,6 +35,14 @@ class Configuration:
     report_structure: str = DEFAULT_REPORT_STRUCTURE # Defaults to the default report structure
     search_api: SearchAPI = SearchAPI.TAVILY # Default to TAVILY
     search_api_config: Optional[Dict[str, Any]] = None
+    process_search_results: Literal["summarize", "split_and_rerank"] | None = None
+    # Summarization model for summarizing search results
+    # will be used if summarize_search_results is True
+    summarization_model_provider: str = "anthropic"
+    summarization_model: str = "claude-3-5-haiku-latest"
+    # Whether to include search results string in the agent output state
+    # This is used for evaluation purposes only
+    include_source_str: bool = False
     
     # Graph-specific configuration
     number_of_queries: int = 2 # Number of search queries to generate per iteration
@@ -50,6 +57,15 @@ class Configuration:
     # Multi-agent specific configuration
     supervisor_model: str = "openai:gpt-4.1" # Model for supervisor agent in multi-agent setup
     researcher_model: str = "openai:gpt-4.1" # Model for research agents in multi-agent setup 
+    ask_for_clarification: bool = False # Whether to ask for clarification from the user
+    # MCP server configuration for multi-agent setup
+    # see examples here: https://github.com/langchain-ai/langchain-mcp-adapters#client-1
+    mcp_server_config: Optional[Dict[str, Any]] = None
+    # optional prompt to append to the researcher agent prompt
+    mcp_prompt: Optional[str] = None
+    # optional list of MCP tool names to include in the researcher agent
+    # if not set, all MCP tools across all servers in the config will be included
+    mcp_tools_to_include: Optional[list[str]] = None
 
     @classmethod
     def from_runnable_config(

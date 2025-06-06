@@ -1,33 +1,48 @@
 import os
 import asyncio
+import json
+import datetime
 import requests
 import random 
 import concurrent
+import hashlib
 import aiohttp
 import httpx
 import time
-from typing import List, Optional, Dict, Any, Union, Literal
+from typing import List, Optional, Dict, Any, Union, Literal, Annotated, cast
 from urllib.parse import unquote
+from collections import defaultdict
+import itertools
 
 from exa_py import Exa
 from linkup import LinkupClient
 from tavily import AsyncTavilyClient
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents.aio import SearchClient as AsyncAzureAISearchClient
-import asyncio
-import os
 from duckduckgo_search import DDGS 
 from bs4 import BeautifulSoup
 from markdownify import markdownify
-
+from pydantic import BaseModel
+from langchain.chat_models import init_chat_model
+from langchain.embeddings import init_embeddings
+from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
+from langchain_anthropic import ChatAnthropic
+from langchain_core.language_models import BaseChatModel
+from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import InjectedToolArg
+from langchain_core.vectorstores import InMemoryVectorStore
 from langchain_community.retrievers import ArxivRetriever
 from langchain_community.utilities.pubmed import PubMedAPIWrapper
 from langchain_core.tools import tool
-
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langsmith import traceable
 
+from open_deep_research.configuration import Configuration
 from open_deep_research.state import Section
-    
+from open_deep_research.prompts import SUMMARIZATION_PROMPT
+
+
 def get_config_value(value):
     """
     Helper function to handle string, dict, and enum cases of configuration values
@@ -1340,24 +1355,34 @@ async def duckduckgo_search(search_queries: List[str]):
     else:
         return "No valid search results found. Please try different search queries or use a different search API."
 
-@tool
-async def tavily_search(queries: List[str], max_results: int = 5, topic: Literal["general", "news", "finance"] = "general") -> str:
+TAVILY_SEARCH_DESCRIPTION = (
+    "A search engine optimized for comprehensive, accurate, and trusted results. "
+    "Useful for when you need to answer questions about current events."
+)
+
+@tool(description=TAVILY_SEARCH_DESCRIPTION)
+async def tavily_search(
+    queries: List[str],
+    max_results: Annotated[int, InjectedToolArg] = 5,
+    topic: Annotated[Literal["general", "news", "finance"], InjectedToolArg] = "general",
+    config: RunnableConfig = None
+) -> str:
     """
     Fetches results from Tavily search API.
-    
+
     Args:
         queries (List[str]): List of search queries
         max_results (int): Maximum number of results to return
-        topic (Literal["general", "news", "finance"]): Topic to filter results by
-        
+        topic (Literal['general', 'news', 'finance']): Topic to filter results by
+
     Returns:
         str: A formatted string of search results
     """
     # Use tavily_search_async with include_raw_content=True to get content directly
     search_results = await tavily_search_async(
         queries,
-        max_results=5,
-        topic="general",
+        max_results=max_results,
+        topic=topic,
         include_raw_content=True
     )
 
@@ -1370,15 +1395,55 @@ async def tavily_search(queries: List[str], max_results: int = 5, topic: Literal
         for result in response['results']:
             url = result['url']
             if url not in unique_results:
-                unique_results[url] = result
-    
+                unique_results[url] = {**result, "query": response['query']}
+
+    async def noop():
+        return None
+
+    configurable = Configuration.from_runnable_config(config)
+    max_char_to_include = 30_000
+    # TODO: share this behavior across all search implementations / tools
+    if configurable.process_search_results == "summarize":
+        if configurable.summarization_model_provider == "anthropic":
+            extra_kwargs = {"betas": ["extended-cache-ttl-2025-04-11"]}
+        else:
+            extra_kwargs = {}
+
+        summarization_model = init_chat_model(
+            model=configurable.summarization_model,
+            model_provider=configurable.summarization_model_provider,
+            **extra_kwargs
+        )
+        summarization_tasks = [
+            noop() if not result.get("raw_content") else summarize_webpage(summarization_model, result['raw_content'][:max_char_to_include])
+            for result in unique_results.values()
+        ]
+        summaries = await asyncio.gather(*summarization_tasks)
+        unique_results = {
+            url: {'title': result['title'], 'content': result['content'] if summary is None else summary}
+            for url, result, summary in zip(unique_results.keys(), unique_results.values(), summaries)
+        }
+    elif configurable.process_search_results == "split_and_rerank":
+        embeddings = init_embeddings("openai:text-embedding-3-small")
+        results_by_query = itertools.groupby(unique_results.values(), key=lambda x: x['query'])
+        all_retrieved_docs = []
+        for query, query_results in results_by_query:
+            retrieved_docs = split_and_rerank_search_results(embeddings, query, query_results)
+            all_retrieved_docs.extend(retrieved_docs)
+
+        stitched_docs = stitch_documents_by_url(all_retrieved_docs)
+        unique_results = {
+            doc.metadata['url']: {'title': doc.metadata['title'], 'content': doc.page_content}
+            for doc in stitched_docs
+        }
+
     # Format the unique results
     for i, (url, result) in enumerate(unique_results.items()):
         formatted_output += f"\n\n--- SOURCE {i+1}: {result['title']} ---\n"
         formatted_output += f"URL: {url}\n\n"
         formatted_output += f"SUMMARY:\n{result['content']}\n\n"
         if result.get('raw_content'):
-            formatted_output += f"FULL CONTENT:\n{result['raw_content'][:30000]}"  # Limit content size
+            formatted_output += f"FULL CONTENT:\n{result['raw_content'][:max_char_to_include]}"  # Limit content size
         formatted_output += "\n\n" + "-" * 80 + "\n"
     
     if unique_results:
@@ -1446,11 +1511,10 @@ async def select_and_execute_search(search_api: str, query_list: list[str], para
     Raises:
         ValueError: If an unsupported search API is specified
     """
-    print(f"query_list: {query_list} params_to_pass: {params_to_pass}")
     if search_api == "tavily":
         # Tavily search tool used with both workflow and agent 
         # and returns a formatted source string
-        return await tavily_search.ainvoke({'queries': query_list}, **params_to_pass)
+        return await tavily_search.ainvoke({'queries': query_list, **params_to_pass})
     elif search_api == "duckduckgo":
         # DuckDuckGo search tool used with both workflow and agent 
         return await duckduckgo_search.ainvoke({'search_queries': query_list})
@@ -1472,3 +1536,99 @@ async def select_and_execute_search(search_api: str, query_list: list[str], para
         raise ValueError(f"Unsupported search API: {search_api}")
 
     return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000, deduplication_strategy="keep_first")
+
+
+class Summary(BaseModel):
+    summary: str
+    key_excerpts: list[str]
+
+
+async def summarize_webpage(model: BaseChatModel, webpage_content: str) -> str:
+    """Summarize webpage content."""
+    try:
+        user_input_content = "Please summarize the article"
+        if isinstance(model, ChatAnthropic):
+            user_input_content = [{
+                "type": "text",
+                "text": user_input_content,
+                "cache_control": {"type": "ephemeral", "ttl": "1h"}
+            }]
+
+        summary = await model.with_structured_output(Summary).with_retry(stop_after_attempt=2).ainvoke([
+            {"role": "system", "content": SUMMARIZATION_PROMPT.format(webpage_content=webpage_content)},
+            {"role": "user", "content": user_input_content},
+        ])
+    except:
+        # fall back on the raw content
+        return webpage_content
+
+    def format_summary(summary: Summary):
+        excerpts_str = "\n".join(f'- {e}' for e in summary.key_excerpts)
+        return f"""<summary>\n{summary.summary}\n</summary>\n\n<key_excerpts>\n{excerpts_str}\n</key_excerpts>"""
+
+    return format_summary(summary)
+
+
+def split_and_rerank_search_results(embeddings: Embeddings, query: str, search_results: list[dict], max_chunks: int = 5):
+    # split webpage content into chunks
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1500, chunk_overlap=200, add_start_index=True
+    )
+    documents = [
+        Document(
+            page_content=result.get('raw_content') or result['content'],
+            metadata={"url": result['url'], "title": result['title']}
+        )
+        for result in search_results
+    ]
+    all_splits = text_splitter.split_documents(documents)
+
+    # index chunks
+    vector_store = InMemoryVectorStore(embeddings)
+    vector_store.add_documents(documents=all_splits)
+
+    # retrieve relevant chunks
+    retrieved_docs = vector_store.similarity_search(query, k=max_chunks)
+    return retrieved_docs
+
+
+def stitch_documents_by_url(documents: list[Document]) -> list[Document]:
+    url_to_docs: defaultdict[str, list[Document]] = defaultdict(list)
+    url_to_snippet_hashes: defaultdict[str, set[str]] = defaultdict(set)
+    for doc in documents:
+        snippet_hash = hashlib.sha256(doc.page_content.encode()).hexdigest()
+        url = doc.metadata['url']
+        # deduplicate snippets by the content
+        if snippet_hash in url_to_snippet_hashes[url]:
+            continue
+
+        url_to_docs[url].append(doc)
+        url_to_snippet_hashes[url].add(snippet_hash)
+
+    # stitch retrieved chunks into a single doc per URL
+    stitched_docs = []
+    for docs in url_to_docs.values():
+        stitched_doc = Document(
+            page_content="\n\n".join([f"...{doc.page_content}..." for doc in docs]),
+            metadata=cast(Document, docs[0]).metadata
+        )
+        stitched_docs.append(stitched_doc)
+
+    return stitched_docs
+
+
+def get_today_str() -> str:
+    """Get current date in a human-readable format."""
+    return datetime.datetime.now().strftime("%a %b %-d, %Y")
+
+
+async def load_mcp_server_config(path: str) -> dict:
+    """Load MCP server configuration from a file."""
+
+    def _load():
+        with open(path, "r") as f:
+            config = json.load(f)
+        return config
+
+    config = await asyncio.to_thread(_load)
+    return config

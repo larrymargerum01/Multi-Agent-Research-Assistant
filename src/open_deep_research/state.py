@@ -42,6 +42,9 @@ class ReportStateInput(TypedDict):
     
 class ReportStateOutput(TypedDict):
     final_report: str # Final report
+    # for evaluation purposes only
+    # this is included only if configurable.include_source_str is True
+    source_str: str # String of formatted source content from web search
 
 class ReportState(TypedDict):
     topic: str # Report topic    
@@ -50,6 +53,9 @@ class ReportState(TypedDict):
     completed_sections: Annotated[list, operator.add] # Send() API key
     report_sections_from_research: str # String of any completed sections from research to write final sections
     final_report: str # Final report
+    # for evaluation purposes only
+    # this is included only if configurable.include_source_str is True
+    source_str: Annotated[str, operator.add] # String of formatted source content from web search
 
 class SectionState(TypedDict):
     topic: str # Report topic
@@ -62,3 +68,6 @@ class SectionState(TypedDict):
 
 class SectionOutputState(TypedDict):
     completed_sections: list[Section] # Final key we duplicate in outer state for Send() API
+    # for evaluation purposes only
+    # this is included only if configurable.include_source_str is True
+    source_str: str # String of formatted source content from web search

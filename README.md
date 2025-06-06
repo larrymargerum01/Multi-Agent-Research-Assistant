@@ -149,9 +149,106 @@ The multi-agent implementation uses a supervisor-researcher architecture:
 - **Researcher Agents**: Multiple independent agents work in parallel, each responsible for researching and writing a specific section
 - **Parallel Processing**: All sections are researched simultaneously, significantly reducing report generation time
 - **Specialized Tool Design**: Each agent has access to specific tools for its role (search for researchers, section planning for supervisors)
-- **Currently Limited to Tavily Search**: The multi-agent implementation currently only works with Tavily for search, though the framework is designed to support additional search tools in the future
+- **Search and MCP Support**: Works with Tavily/DuckDuckGo for web search, MCP servers for local/external data access, or can operate without search tools using only MCP tools
 
 This implementation focuses on efficiency and parallelization, making it ideal for faster report generation with less direct user involvement.
+
+## MCP (Model Context Protocol) Support
+
+The multi-agent implementation (`src/open_deep_research/multi_agent.py`) supports MCP servers to extend research capabilities beyond web search. MCP tools are available to research agents alongside or instead of traditional search tools, enabling access to local files, databases, APIs, and other data sources.
+
+**Note**: MCP support is currently only available in the multi-agent (`src/open_deep_research/multi_agent.py`) implementation, not in the workflow-based workflow implementation (`src/open_deep_research/graph.py`).
+
+### Key Features
+
+- **Tool Integration**: MCP tools are seamlessly integrated with existing search and section-writing tools
+- **Research Agent Access**: Only research agents (not supervisors) have access to MCP tools
+- **Flexible Configuration**: Use MCP tools alone or combined with web search
+- **Disable Default Search**: Set `search_api: "none"` to disable web search tools entirely
+- **Custom Prompts**: Add specific instructions for using MCP tools
+
+### Filesystem Server Example
+
+#### SKK
+
+```python
+config = {
+    "configurable": {
+        "search_api": "none",  # Use "tavily" or "duckduckgo" to combine with web search
+        "mcp_server_config": {
+            "filesystem": {
+                "command": "npx",
+                "args": [
+                    "-y",
+                    "@modelcontextprotocol/server-filesystem",
+                    "/path/to/your/files"
+                ],
+                "transport": "stdio"
+            }
+        },
+        "mcp_prompt": "Step 1: Use the `list_allowed_directories` tool to get the list of allowed directories. Step 2: Use the `read_file` tool to read files in the allowed directory.",
+        "mcp_tools_to_include": ["list_allowed_directories", "list_directory", "read_file"]  # Optional: specify which tools to include
+    }
+}
+```
+
+#### Studio
+
+MCP server config: 
+```
+{
+  "filesystem": {
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-filesystem",
+      "/Users/rlm/Desktop/Code/open_deep_research/src/open_deep_research/files"
+    ],
+    "transport": "stdio"
+  }
+}
+```
+
+MCP prompt: 
+```
+Step 1: Use the `list_allowed_directories` tool to get the list of allowed directories. Step 2: Use the `read_file` tool to read files in the allowed directory.
+```
+
+MCP tools: 
+```
+list_allowed_directories
+list_directory 
+read_file
+```
+
+Example test case that you can provide: 
+
+Topic:
+```
+I want an overview of vibe coding
+```
+
+Follow-up to the question asked by the research agent: 
+
+```
+I just want a single section report on vibe coding that highlights an interesting / fun example
+```
+
+### Configuration Options
+
+- **`mcp_server_config`**: Dictionary defining MCP server configurations (see [langchain-mcp-adapters examples](https://github.com/langchain-ai/langchain-mcp-adapters#client-1))
+- **`mcp_prompt`**: Optional instructions added to research agent prompts for using MCP tools
+- **`mcp_tools_to_include`**: Optional list of specific MCP tool names to include (if not set, all tools from all servers are included)
+- **`search_api`**: Set to `"none"` to use only MCP tools, or keep existing search APIs to combine both
+
+### Common Use Cases
+
+- **Local Documentation**: Access project documentation, code files, or knowledge bases
+- **Database Queries**: Connect to databases for specific data retrieval
+- **API Integration**: Access external APIs and services
+- **File Analysis**: Read and analyze local files during research
+
+The MCP integration allows research agents to incorporate local knowledge and external data sources into their research process, creating more comprehensive and context-aware reports.
 
 ## Search API Configuration
 
