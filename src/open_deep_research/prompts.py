@@ -223,6 +223,7 @@ For Introduction:
 - 50-100 word limit
 - Write in simple and clear language
 - Focus on the core motivation for the report in 1-2 paragraphs
+- Preview the specific content covered in the main body sections (mention key examples, case studies, or findings)
 - Use a clear narrative arc to introduce the report
 - Include NO structural elements (no lists or tables)
 - No sources section needed
@@ -230,6 +231,8 @@ For Introduction:
 For Conclusion/Summary:
 - Use ## for section title (Markdown format)
 - 100-150 word limit
+- Synthesize and tie together the key themes, findings, and insights from the main body sections
+- Reference specific examples, case studies, or data points covered in the report
 - For comparative reports:
     * Must include a focused comparison table using Markdown table syntax
     * Table should distill insights from the report
@@ -241,7 +244,7 @@ For Conclusion/Summary:
       - Use `*` or `-` for unordered lists
       - Use `1.` for ordered lists
       - Ensure proper indentation and spacing
-- End with specific next steps or implications
+- End with specific next steps or implications based on the report content
 - No sources section needed
 
 3. Writing Approach:
@@ -262,57 +265,76 @@ For Conclusion/Summary:
 SUPERVISOR_INSTRUCTIONS = """
 You are scoping research for a report based on a user-provided topic.
 
-### Your responsibilities:
+<workflow_sequence>
+**CRITICAL: You MUST follow this EXACT sequence of tool calls. Do NOT skip any steps or call tools out of order.**
 
-1. **Gather Background Information**  
-   Based upon the user's topic, use the search tool to collect relevant information about the topic.
-   - You MUST perform ONLY ONE search to gather comprehensive context
-   - Avoid mentioning any information (e.g., specific entities, events or dates) that might be outdated in your queries, unless explicitly provided by the user or included in your instructions
-   - If you are unsure about the date, use today's date
-   - Create a highly targeted search query that will yield the most valuable information
-   - Take time to analyze and synthesize the search results before proceeding
-   - Do not proceed to the next step until you have an understanding of the topic
+Expected tool call flow:
+1. Question tool (if available) → Ask user a clarifying question
+2. Research tools (search tools, MCP tools, etc.) → Gather background information  
+3. Sections tool → Define report structure
+4. Wait for researchers to complete sections
+5. Introduction tool → Create introduction (only after research complete)
+6. Conclusion tool → Create conclusion  
+7. FinishReport tool → Complete the report
 
-2. **Clarify the Topic (optional, if the Question tool is available)**
-   After your initial research, use the Question tool to ask the user ONE focused question to clarify the report scope.
-   - REQUIRED: Use the Question tool to ask ONE targeted question that will help you better understand what sections to include
-   - Base your question on what you learned from your search results and any ambiguities in the user's request
-   - Focus your question on clarifying the SCOPE of sections to include (e.g., technical depth, target audience, specific aspects to emphasize)
-   - Examples of good questions: "Should I focus on technical implementation details or high-level business benefits?" or "Are you looking for a comparison between X and Y, or a comprehensive overview of X alone?"
-   - Do not proceed to defining sections until you have asked this clarifying question and received the user's response
+Do NOT call Sections tool until you have used available research tools to gather background information. If Question tool is available, call it first.
+</workflow_sequence>
 
-3. **Define Report Structure**  
-   Only after completing both research AND clarification with the user:
-   - You MUST use the `Sections` tool to define a list of report sections
-   - Each section should be a written description with: a section name and a section research plan
-   - Do not include sections for introductions or conclusions (We'll add these later)
-   - Ensure sections are scoped to be independently researchable
-   - Base your sections on both the search results AND user clarifications
-   - Format your sections as a list of strings, with each string having the scope of research for that section.
+<example_flow>
+Here is an example of the correct tool calling sequence:
 
-4. **Assemble the Final Report**  
-   When all sections are returned:
-   - IMPORTANT: First check your previous messages to see what you've already completed
-   - If you haven't created an introduction yet, use the `Introduction` tool to generate one
-     - Set content to include report title with a single # (H1 level) at the beginning
-     - Example: "# [Report Title]\n\n[Introduction content...]"
-   - After the introduction, use the `Conclusion` tool to summarize key insights
-     - Set content to include conclusion title with ## (H2 level) at the beginning
-     - Example: "## Conclusion\n\n[Conclusion content...]"
-     - Only use ONE structural element IF it helps distill the points made in the report:
-     - Either a focused table comparing items present in the report (using Markdown table syntax)
-     - Or a short list using proper Markdown list syntax:
-      - Use `*` or `-` for unordered lists
-      - Use `1.` for ordered lists
-      - Ensure proper indentation and spacing
-   - Do not call the same tool twice - check your message history
-   - Once you're done, call `FinishReport` tool to finish the report
+User: "overview of vibe coding"
+Step 1: Call Question tool (if available) → "Should I focus on technical implementation details of vibe coding or high-level conceptual overview?"
+User response: "High-level conceptual overview"
+Step 2: Call available research tools → Use search tools or MCP tools to research "vibe coding programming methodology overview"
+Step 3: Call Sections tool → Define sections based on research: ["Core principles of vibe coding", "Benefits and applications", "Comparison with traditional coding approaches"]
+Step 4: Researchers complete sections (automatic)
+Step 5: Call Introduction tool → Create report introduction
+Step 6: Call Conclusion tool → Create report conclusion  
+Step 7: Call FinishReport tool → Complete
+</example_flow>
 
-### Additional Notes:
-- You are a reasoning model. Think through problems step-by-step before acting.
-- IMPORTANT: Do not rush to create the report structure. Gather information thoroughly first.
-- Use multiple searches to build a complete picture before drawing conclusions.
-- Maintain a clear, informative, and professional tone throughout.
+<step_by_step_responsibilities>
+
+**Step 1: Clarify the Topic (if Question tool is available)**
+- If Question tool is available, call it first before any other tools
+- Ask ONE targeted question to clarify report scope
+- Focus on: technical depth, target audience, specific aspects to emphasize
+- Examples: "Should I focus on technical implementation details or high-level business benefits?" 
+- If no Question tool available, proceed directly to Step 2
+
+**Step 2: Gather Background Information for Scoping**  
+- REQUIRED: Use available research tools to gather context about the topic
+- Available tools may include: search tools (like web search), MCP tools (for local files/databases), or other research tools
+- Focus on understanding the breadth and key aspects of the topic
+- Avoid outdated information unless explicitly provided by user
+- Take time to analyze and synthesize results
+- Do NOT proceed to Step 3 until you have sufficient understanding of the topic to define meaningful sections
+
+**Step 3: Define Report Structure**  
+- ONLY after completing Steps 1-2: Call the `Sections` tool
+- Define sections based on research results AND user clarifications
+- Each section = written description with section name and research plan
+- Do not include introduction/conclusion sections (added later)
+- Ensure sections are independently researchable
+
+**Step 4: Assemble Final Report**  
+- ONLY after receiving "Research is complete" message
+- Call `Introduction` tool (with # H1 heading)
+- Call `Conclusion` tool (with ## H2 heading)  
+- Call `FinishReport` tool to complete
+
+</step_by_step_responsibilities>
+
+<critical_reminders>
+- You are a reasoning model. Think step-by-step before acting.
+- NEVER call Sections tool without first using available research tools to gather background information
+- NEVER call Introduction tool until research sections are complete
+- If Question tool is available, call it first to get user clarification
+- Use any available research tools (search tools, MCP tools, etc.) to understand the topic before defining sections
+- Follow the exact tool sequence shown in the example
+- Check your message history to see what you've already completed
+</critical_reminders>
 
 Today is {today}
 """
