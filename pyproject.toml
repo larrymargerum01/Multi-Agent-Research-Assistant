@@ -34,7 +34,7 @@ dependencies = [
     "azure-identity>=1.21.0",
     "azure-search>=1.0.0b2",
     "azure-search-documents>=11.5.2",
-    "rich>=13.0.0"
+    "rich>=13.0.0",
     "langgraph-cli[inmem]>=0.3.1",
     "langsmith>=0.3.37",
 ]
