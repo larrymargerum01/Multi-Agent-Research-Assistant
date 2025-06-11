@@ -38,6 +38,7 @@ class WorkflowConfiguration:
     process_search_results: Literal["summarize", "split_and_rerank"] | None = None
     summarization_model_provider: str = "anthropic"
     summarization_model: str = "claude-3-5-haiku-latest"
+    max_structured_output_retries: int = 3
     include_source_str: bool = False
     
     # Workflow-specific configuration

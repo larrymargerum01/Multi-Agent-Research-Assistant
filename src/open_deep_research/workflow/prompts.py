@@ -139,6 +139,8 @@ section_writer_instructions = """Write one section of a research report.
 - Use simple, clear language
 - Use short paragraphs (2-3 sentences max)
 - Use ## for section title (Markdown format)
+- Do NOT ever refer to yourself as the writer of the report. This should be a professional report without any self-referential language. 
+- Do not say what you are doing in the report. Just write the report without any commentary from yourself.
 </Writing Guidelines>
 
 <Citation Rules>
@@ -154,6 +156,7 @@ section_writer_instructions = """Write one section of a research report.
 1. Verify that EVERY claim is grounded in the provided Source material
 2. Confirm each URL appears ONLY ONCE in the Source list
 3. Verify that sources are numbered sequentially (1,2,3...) without any gaps
+4. DO NOT include any commentary from yourself in the section. Just write the section. Do not say "I'm writing a section" or "I'll revise this section" or anything like that. Just include the report itself.
 </Final Check>
 """
 

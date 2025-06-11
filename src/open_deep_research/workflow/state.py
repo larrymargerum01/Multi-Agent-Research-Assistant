@@ -9,6 +9,11 @@ class ClarifyWithUser(BaseModel):
         description="A question to ask the user to clarify the report scope",
     )
 
+class SectionOutput(BaseModel):
+    section_content: str = Field(
+        description="The content of the section.",
+    )
+
 class ReportStateInput(MessagesState):
     """InputState is only 'messages'"""
     already_clarified_topic: bool # If the user has clarified the topic with the agent

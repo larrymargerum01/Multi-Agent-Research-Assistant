@@ -1412,6 +1412,7 @@ async def tavily_search(
         summarization_model = init_chat_model(
             model=configurable.summarization_model,
             model_provider=configurable.summarization_model_provider,
+            max_retries=configurable.max_structured_output_retries,
             **extra_kwargs
         )
         summarization_tasks = [

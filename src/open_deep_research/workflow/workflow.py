@@ -13,7 +13,8 @@ from open_deep_research.workflow.state import (
     ReportState,
     SectionState,
     SectionOutputState,
-    ClarifyWithUser
+    ClarifyWithUser,
+    SectionOutput
 )
 from open_deep_research.state import (
     Sections,
@@ -202,12 +203,17 @@ async def write_section(state: SectionState, config: RunnableConfig):
     writer_provider = get_config_value(configurable.writer_provider)
     writer_model_name = get_config_value(configurable.writer_model)
     writer_model_kwargs = get_config_value(configurable.writer_model_kwargs or {})
-    writer_model = init_chat_model(model=writer_model_name, model_provider=writer_provider, model_kwargs=writer_model_kwargs) 
+    writer_model = init_chat_model(
+        model=writer_model_name,
+        model_provider=writer_provider,
+        model_kwargs=writer_model_kwargs,
+        max_retries=configurable.max_structured_output_retries
+    ).with_structured_output(SectionOutput)
 
     section_content = await writer_model.ainvoke([SystemMessage(content=section_writer_instructions),
                                            HumanMessage(content=section_writer_inputs_formatted)])
     
-    section.content = section_content.content
+    section.content = section_content.section_content
 
     section_grader_message = ("Grade the report and consider follow-up questions for missing information. "
                               "If the grade is 'pass', return empty strings for all follow-up queries. "
@@ -230,7 +236,9 @@ async def write_section(state: SectionState, config: RunnableConfig):
                                            thinking={"type": "enabled", "budget_tokens": 16_000}).with_structured_output(Feedback)
     else:
         reflection_model = init_chat_model(model=planner_model, 
-                                           model_provider=planner_provider, model_kwargs=planner_model_kwargs).with_structured_output(Feedback)
+                                           model_provider=planner_provider,
+                                           max_retries=configurable.max_structured_output_retries,
+                                           model_kwargs=planner_model_kwargs).with_structured_output(Feedback)
 
     feedback = await reflection_model.ainvoke([SystemMessage(content=section_grader_instructions_formatted),
                                         HumanMessage(content=section_grader_message)])
