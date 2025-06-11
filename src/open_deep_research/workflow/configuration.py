@@ -14,7 +14,7 @@ class WorkflowConfiguration:
     search_api_config: Optional[Dict[str, Any]] = None
     clarify_with_user: bool = False
     sections_user_approval: bool = False
-    process_search_results: Literal["summarize", "split_and_rerank"] | None = None
+    process_search_results: Literal["summarize", "split_and_rerank"] | None = "summarize"
     summarization_model_provider: str = "anthropic"
     summarization_model: str = "claude-3-5-haiku-latest"
     include_source_str: bool = False

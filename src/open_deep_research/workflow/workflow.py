@@ -283,9 +283,9 @@ async def compile_final_report(state: ReportState, config: RunnableConfig):
     all_sections = "\n\n".join([s.content for s in sections])
 
     if configurable.include_source_str:
-        return {"final_report": all_sections, "source_str": state["source_str"]}
+        return {"final_report": all_sections, "source_str": state["source_str"], "messages": [AIMessage(content=all_sections)]}
     else:
-        return {"final_report": all_sections}
+        return {"final_report": all_sections, "messages": [AIMessage(content=all_sections)]}
 
 
 async def initiate_final_section_writing(state: ReportState):
