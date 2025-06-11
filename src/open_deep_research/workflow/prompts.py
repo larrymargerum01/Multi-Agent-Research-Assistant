@@ -275,6 +275,7 @@ For Conclusion/Summary:
 - For conclusion: 100-150 word limit, ## for section title, only ONE structural element at most, no sources section
 - Markdown format
 - Do not include word count or any preamble in your response
+- Do NOT ever refer to yourself as the writer of the report. This should be a professional report without any self-referential language.
 </Quality Checks>"""
 
 SUMMARIZATION_PROMPT = """You are tasked with summarizing the raw content of a webpage retrieved from a web search. Your goal is to create a concise summary that preserves the most important information from the original web page. This summary will be used by a downstream research agent, so it's crucial to maintain the key details without losing essential information.
