@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from langgraph.graph import MessagesState
 from open_deep_research.state import Section, SearchQuery
 import operator
@@ -16,7 +16,7 @@ class SectionOutput(BaseModel):
 
 class ReportStateInput(MessagesState):
     """InputState is only 'messages'"""
-    already_clarified_topic: bool # If the user has clarified the topic with the agent
+    already_clarified_topic: Optional[bool] = None # If the user has clarified the topic with the agent
     
 class ReportStateOutput(MessagesState):
     final_report: str
@@ -25,7 +25,7 @@ class ReportStateOutput(MessagesState):
     source_str: str # String of formatted source content from web search
 
 class ReportState(MessagesState):
-    already_clarified_topic: bool # If the user has clarified the topic with the agent
+    already_clarified_topic: Optional[bool] = None # If the user has clarified the topic with the agent
     feedback_on_report_plan: Annotated[list[str], operator.add] # List of feedback on the report plan
     sections: list[Section] # List of report sections 
     completed_sections: Annotated[list, operator.add] # Send() API key
