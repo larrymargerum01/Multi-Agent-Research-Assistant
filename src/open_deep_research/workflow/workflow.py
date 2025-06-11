@@ -41,7 +41,7 @@ from open_deep_research.utils import (
 ## Nodes
 def initial_router(state: ReportState, config: RunnableConfig):
     configurable = WorkflowConfiguration.from_runnable_config(config)
-    if configurable.clarify_with_user and not state.get("already_clarified_topic", True):
+    if configurable.clarify_with_user and not state.get("already_clarified_topic", False):
         return "clarify_with_user"
     else:
         return "generate_report_plan"
