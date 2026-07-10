@@ -22,7 +22,7 @@ Deep research has broken out as one of the most popular agent applications. This
 
 1. Clone the repository and activate a virtual environment:
 ```bash
-git clone https://github.com/langchain-ai/open_deep_research.git
+git clone https://github.com/larrymargerum01/Multi-Agent-Research-Assistant.git
 cd open_deep_research
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
